@@ -1,0 +1,49 @@
+{
+  "name": "@overlive/stores",
+  "version": "0.1.0",
+  "description": "Reactive collection stores for Overlive — framework agnostic",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    },
+    "./react": {
+      "import": "./dist/adapters/react.js",
+      "require": "./dist/adapters/react.cjs",
+      "types": "./dist/adapters/react.d.ts"
+    },
+    "./vue": {
+      "import": "./dist/adapters/vue.js",
+      "require": "./dist/adapters/vue.cjs",
+      "types": "./dist/adapters/vue.d.ts"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@overlive/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@overlive/core": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true },
+    "vue": { "optional": true }
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}

@@ -1,0 +1,52 @@
+// Main entry point
+export { OverliveKit } from './OverliveKit.js'
+export type { OverliveKitOptions } from './OverliveKit.js'
+
+// Event types
+export type {
+  OverliveEvent,
+  EventType,
+  EventByType,
+  Platform,
+  BaseEvent,
+  RedemptionEvent,
+  RedemptionCurrency,
+  SubscriptionEvent,
+  SubscriptionTier,
+  GiftBombEvent,
+  RaidEvent,
+  FollowEvent,
+  ChatMessageEvent,
+  ChatCommandEvent,
+  AdStartEvent,
+  AdEndEvent,
+  BanEvent,
+  DeleteMessageEvent,
+  StreamOnlineEvent,
+  StreamOfflineEvent,
+  ResolvedEmote,
+  EmotePlatform,
+  MessageToken,
+} from './events/types.js'
+
+// Adapter interface — for adapter package authors
+export type {
+  PlatformAdapter,
+  RestCapableAdapter,
+  AdapterRestClient,
+  AdapterEventHandler,
+  SuppressionMap,
+  ConnectionState,
+} from './adapter/types.js'
+export { isRestCapable } from './adapter/types.js'
+
+// Bus
+export type { SubscribeOptions, Subscription } from './bus/TypedEventBus.js'
+
+// Middleware
+export type { Middleware, MiddlewareNext } from './middleware/pipeline.js'
+export { createLoggingMiddleware } from './middleware/pipeline.js'
+
+// REST
+export { UnifiedRestClient } from './rest/UnifiedRestClient.js'
+export type { TopDonor, ClipResult, StreamInfo, ChattersResult } from './rest/UnifiedRestClient.js'

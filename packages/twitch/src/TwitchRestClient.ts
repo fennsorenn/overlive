@@ -1,0 +1,150 @@
+import type { AdapterRestClient, Platform, ClipResult, StreamInfo, ChattersResult } from '@overlive/core'
+
+const HELIX = 'https://api.twitch.tv/helix'
+
+export class TwitchRestClient implements AdapterRestClient {
+  readonly platform: Platform = 'twitch'
+
+  constructor(
+    private readonly clientId: string,
+    private readonly accessToken: string,
+    private readonly broadcasterId: string,
+  ) {}
+
+  private async get<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+    const url = new URL(`${HELIX}${path}`)
+    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
+
+    const res = await fetch(url, {
+      headers: {
+        'Client-Id': this.clientId,
+        Authorization: `Bearer ${this.accessToken}`,
+      },
+    })
+
+    if (!res.ok) {
+      throw new Error(`Twitch API error: ${res.status} ${res.statusText} (${path})`)
+    }
+
+    return res.json() as Promise<T>
+  }
+
+  // ─── Clips ────────────────────────────────────────────────────────────────
+
+  async getClips(options: {
+    limit?: number
+    period?: 'day' | 'week' | 'month' | 'alltime'
+  } = {}): Promise<ClipResult[]> {
+    const params: Record<string, string> = {
+      broadcaster_id: this.broadcasterId,
+      first: String(Math.min(options.limit ?? 20, 100)),
+    }
+
+    if (options.period && options.period !== 'alltime') {
+      const now = new Date()
+      const start = new Date(now)
+      if (options.period === 'day') start.setDate(now.getDate() - 1)
+      if (options.period === 'week') start.setDate(now.getDate() - 7)
+      if (options.period === 'month') start.setMonth(now.getMonth() - 1)
+      params['started_at'] = start.toISOString()
+    }
+
+    const data = await this.get<{ data: unknown[] }>('/clips', params)
+
+    return data.data.map((c) => {
+      const clip = c as Record<string, unknown>
+      return {
+        id: String(clip['id'] ?? ''),
+        title: String(clip['title'] ?? ''),
+        url: String(clip['url'] ?? ''),
+        thumbnailUrl: String(clip['thumbnail_url'] ?? ''),
+        viewCount: Number(clip['view_count'] ?? 0),
+        createdAt: new Date(String(clip['created_at'] ?? '')),
+        duration: Number(clip['duration'] ?? 0),
+        platform: 'twitch' as Platform,
+      }
+    })
+  }
+
+  // ─── Stream info ──────────────────────────────────────────────────────────
+
+  async getStreamInfo(): Promise<StreamInfo | null> {
+    const data = await this.get<{ data: unknown[] }>('/streams', {
+      user_id: this.broadcasterId,
+    })
+
+    const stream = data.data[0] as Record<string, unknown> | undefined
+    if (!stream) return null
+
+    return {
+      title: String(stream['title'] ?? ''),
+      category: String(stream['game_name'] ?? '') || undefined,
+      viewerCount: Number(stream['viewer_count'] ?? 0),
+      startedAt: new Date(String(stream['started_at'] ?? '')),
+      platform: 'twitch',
+    }
+  }
+
+  // ─── Chatters ─────────────────────────────────────────────────────────────
+
+  async getChatters(): Promise<ChattersResult> {
+    const data = await this.get<{ data: unknown[]; total: number }>('/chat/chatters', {
+      broadcaster_id: this.broadcasterId,
+      moderator_id: this.broadcasterId,
+    })
+
+    return {
+      total: data.total,
+      platform: 'twitch',
+      usernames: data.data.map((c) => String((c as Record<string, unknown>)['user_login'] ?? '')),
+    }
+  }
+
+  // ─── Channel rewards ──────────────────────────────────────────────────────
+
+  async getChannelRewards(): Promise<Array<{ id: string; title: string; cost: number; isEnabled: boolean }>> {
+    const data = await this.get<{ data: unknown[] }>('/channel_points/custom_rewards', {
+      broadcaster_id: this.broadcasterId,
+    })
+
+    return data.data.map((r) => {
+      const reward = r as Record<string, unknown>
+      return {
+        id: String(reward['id'] ?? ''),
+        title: String(reward['title'] ?? ''),
+        cost: Number(reward['cost'] ?? 0),
+        isEnabled: Boolean(reward['is_enabled']),
+      }
+    })
+  }
+
+  // ─── User info ────────────────────────────────────────────────────────────
+
+  async getUser(login: string): Promise<{ id: string; login: string; displayName: string } | null> {
+    const data = await this.get<{ data: unknown[] }>('/users', { login })
+    const user = data.data[0] as Record<string, unknown> | undefined
+    if (!user) return null
+    return {
+      id: String(user['id'] ?? ''),
+      login: String(user['login'] ?? ''),
+      displayName: String(user['display_name'] ?? ''),
+    }
+  }
+
+  // ─── Moderators ───────────────────────────────────────────────────────────
+
+  async getModerators(): Promise<Array<{ userId: string; username: string; displayName: string }>> {
+    const data = await this.get<{ data: unknown[] }>('/moderation/moderators', {
+      broadcaster_id: this.broadcasterId,
+    })
+
+    return data.data.map((m) => {
+      const mod = m as Record<string, unknown>
+      return {
+        userId: String(mod['user_id'] ?? ''),
+        username: String(mod['user_login'] ?? ''),
+        displayName: String(mod['user_name'] ?? ''),
+      }
+    })
+  }
+}
