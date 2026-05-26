@@ -1,5 +1,19 @@
-import type { PlatformAdapter } from './adapter/types.js'
+import type { PlatformAdapter, AdapterStateInfo } from './adapter/types.js'
 import type { EventType, EventByType, OverliveEvent, AdapterEmittedEvent } from './events/types.js'
+
+/**
+ * State snapshot for one registered adapter instance.
+ */
+export interface AdapterStateSnapshot extends AdapterStateInfo {
+  instanceId: string
+  platform: string
+  displayName: string
+}
+
+/**
+ * Callback for kit-level adapter state changes.
+ */
+export type AdapterStateListener = (snapshot: AdapterStateSnapshot) => void
 import type { SubscribeOptions, Subscription } from './bus/TypedEventBus.js'
 import type { Middleware } from './middleware/pipeline.js'
 
@@ -26,6 +40,10 @@ export class OverliveKit {
   private readonly bus: TypedEventBus
   private readonly pipeline: MiddlewarePipeline
   private readonly options: Required<OverliveKitOptions>
+
+  // Per-instance latest state snapshot, plus listeners for adapter.state events.
+  private readonly adapterState = new Map<string, AdapterStateSnapshot>()
+  private readonly adapterStateListeners = new Set<AdapterStateListener>()
 
   /** Unified REST client — access data across all registered platforms */
   readonly rest: UnifiedRestClient
@@ -74,6 +92,17 @@ export class OverliveKit {
     const id = instanceId ?? adapter.platform
     this.registry.register(id, adapter)
 
+    // Seed the initial state snapshot from whatever the adapter reports
+    // right after registration (typically 'disconnected').
+    this.recordAdapterState(id, adapter, { state: adapter.state })
+
+    // Subscribe to adapter state changes if it supports it. Adapters that
+    // omit onStateChange just keep the seeded snapshot until connect()
+    // updates `adapter.state` directly (less precise but acceptable).
+    adapter.onStateChange?.((info) => {
+      this.recordAdapterState(id, adapter, info)
+    })
+
     adapter.onEvent(async (event: AdapterEmittedEvent) => {
       // Stamp the event with the registry instance id so consumers can
       // route by account when multiple adapters of the same platform exist.
@@ -96,6 +125,70 @@ export class OverliveKit {
     if (adapter) {
       await adapter.disconnect()
       this.registry.unregister(instanceId)
+      this.adapterState.delete(instanceId)
+    }
+  }
+
+  // ─── Adapter state observability ──────────────────────────────────────────
+
+  /**
+   * Snapshot of the current state of every registered adapter instance.
+   * Useful for rendering connection status indicators in a settings UI.
+   */
+  adapterStates(): AdapterStateSnapshot[] {
+    return Array.from(this.adapterState.values())
+  }
+
+  /**
+   * Subscribe to adapter state changes across all registered instances.
+   * Fires on every state transition, including reconnects and token issues.
+   * Use the snapshot's `reason` field to decide whether the user should
+   * act (e.g. `'token_revoked'` → show a reconnect button).
+   */
+  on(event: 'adapter.state', handler: AdapterStateListener): { unsubscribe: () => void }
+  /**
+   * Subscribe to a specific event type. (Same as the typed overload below.)
+   */
+  on<T extends EventType>(
+    type: T,
+    handler: (event: EventByType<T>) => void | Promise<void>,
+    options?: SubscribeOptions,
+  ): Subscription
+  on(
+    typeOrEvent: EventType | 'adapter.state',
+    handler: ((info: AdapterStateSnapshot) => void) | ((event: OverliveEvent) => void | Promise<void>),
+    options: SubscribeOptions = {},
+  ): Subscription | { unsubscribe: () => void } {
+    if (typeOrEvent === 'adapter.state') {
+      const listener = handler as AdapterStateListener
+      this.adapterStateListeners.add(listener)
+      return { unsubscribe: () => this.adapterStateListeners.delete(listener) }
+    }
+    return this.bus.on(
+      typeOrEvent,
+      handler as (event: OverliveEvent) => void | Promise<void>,
+      options,
+    )
+  }
+
+  private recordAdapterState(
+    instanceId: string,
+    adapter: PlatformAdapter,
+    info: AdapterStateInfo,
+  ): void {
+    const snapshot: AdapterStateSnapshot = {
+      instanceId,
+      platform: adapter.platform,
+      displayName: adapter.displayName ?? adapter.platform,
+      ...info,
+    }
+    this.adapterState.set(instanceId, snapshot)
+    for (const listener of this.adapterStateListeners) {
+      try {
+        listener(snapshot)
+      } catch (e) {
+        console.error('[overlive] adapter.state listener threw:', e)
+      }
     }
   }
 
@@ -118,22 +211,6 @@ export class OverliveKit {
   }
 
   // ─── Event subscription ───────────────────────────────────────────────────
-
-  /**
-   * Subscribe to a specific event type.
-   *
-   * @example
-   * kit.on('redemption', (e) => console.log(e.data.currency))
-   * kit.on('chat.message', handler, { resolveEmotes: true })
-   * kit.on('chat.command', handler, { channels: ['mychannel'] })
-   */
-  on<T extends EventType>(
-    type: T,
-    handler: (event: EventByType<T>) => void | Promise<void>,
-    options: SubscribeOptions = {},
-  ): Subscription {
-    return this.bus.on(type, handler, options)
-  }
 
   /**
    * Subscribe to all events from all platforms.

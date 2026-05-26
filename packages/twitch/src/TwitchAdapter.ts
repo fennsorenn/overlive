@@ -1,9 +1,10 @@
 import type {
-  PlatformAdapter,
   AdapterEventHandler,
   ConnectionState,
   SuppressionMap,
   RestCapableAdapter,
+  AdapterStateInfo,
+  AdapterStateReason,
 } from '@overlive/core'
 import type { TwitchAdapterConfig } from './config.js'
 import { TwitchEventSubClient } from './EventSubClient.js'
@@ -37,7 +38,7 @@ export class TwitchAdapter implements RestCapableAdapter {
 
   private _state: ConnectionState = 'disconnected'
   private handler: AdapterEventHandler | null = null
-  private stateHandler: ((state: ConnectionState) => void) | null = null
+  private stateHandler: ((info: AdapterStateInfo) => void) | null = null
 
   private readonly eventSub: TwitchEventSubClient
   readonly rest: TwitchRestClient
@@ -82,7 +83,7 @@ export class TwitchAdapter implements RestCapableAdapter {
     this.handler = handler
   }
 
-  onStateChange(handler: (state: ConnectionState) => void): void {
+  onStateChange(handler: (info: AdapterStateInfo) => void): void {
     this.stateHandler = handler
   }
 
@@ -101,7 +102,7 @@ export class TwitchAdapter implements RestCapableAdapter {
       await this.eventSub.connect()
       this.setState('connected')
     } catch (e) {
-      this.setState('error')
+      this.setState('error', classifyConnectError(e))
       throw e
     }
   }
@@ -174,8 +175,35 @@ export class TwitchAdapter implements RestCapableAdapter {
     }
   }
 
-  private setState(state: ConnectionState): void {
+  private setState(
+    state: ConnectionState,
+    detail?: { reason?: AdapterStateReason; message?: string },
+  ): void {
     this._state = state
-    this.stateHandler?.(state)
+    const info: AdapterStateInfo = {
+      state,
+      ...(detail?.reason !== undefined && { reason: detail.reason }),
+      ...(detail?.message !== undefined && { message: detail.message }),
+    }
+    this.stateHandler?.(info)
   }
+}
+
+/**
+ * Classify a connect-time error so consumers can decide whether the user
+ * needs to reauth, retry, or just see an error message.
+ */
+function classifyConnectError(e: unknown): { reason: AdapterStateReason; message: string } {
+  const msg = e instanceof Error ? e.message : String(e)
+  const lower = msg.toLowerCase()
+  if (lower.includes('401') || lower.includes('unauthorized')) {
+    return { reason: 'token_expired', message: msg }
+  }
+  if (lower.includes('403') || lower.includes('forbidden') || lower.includes('scope')) {
+    return { reason: 'scope_missing', message: msg }
+  }
+  if (lower.includes('econn') || lower.includes('network') || lower.includes('etimedout')) {
+    return { reason: 'network', message: msg }
+  }
+  return { reason: 'unknown', message: msg }
 }

@@ -41,8 +41,13 @@ export type {
   AdapterEventHandler,
   SuppressionMap,
   ConnectionState,
+  AdapterStateInfo,
+  AdapterStateReason,
 } from './adapter/types.js'
 export { isRestCapable } from './adapter/types.js'
+
+// Kit-level adapter state observability
+export type { AdapterStateSnapshot, AdapterStateListener } from './OverliveKit.js'
 
 // Bus
 export type { SubscribeOptions, Subscription } from './bus/TypedEventBus.js'

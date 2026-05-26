@@ -4,6 +4,8 @@ import type {
   AdapterEventHandler,
   ConnectionState,
   SuppressionMap,
+  AdapterStateInfo,
+  AdapterStateReason,
   RedemptionEvent,
   SubscriptionEvent,
   RaidEvent,
@@ -56,7 +58,7 @@ export class SEAdapter implements RestCapableAdapter {
 
   private _state: ConnectionState = 'disconnected'
   private handler: AdapterEventHandler | null = null
-  private stateHandler: ((state: ConnectionState) => void) | null = null
+  private stateHandler: ((info: AdapterStateInfo) => void) | null = null
   private socket: unknown = null
 
   readonly rest: SERestClient
@@ -73,7 +75,7 @@ export class SEAdapter implements RestCapableAdapter {
     this.handler = handler
   }
 
-  onStateChange(handler: (state: ConnectionState) => void): void {
+  onStateChange(handler: (info: AdapterStateInfo) => void): void {
     this.stateHandler = handler
   }
 
@@ -100,7 +102,7 @@ export class SEAdapter implements RestCapableAdapter {
       })
 
       socket.on('unauthorized', (err: unknown) => {
-        this.setState('error')
+        this.setState('error', { reason: 'token_revoked', message: `SE authentication failed: ${String(err)}` })
         reject(new Error(`SE authentication failed: ${String(err)}`))
       })
 
@@ -121,7 +123,7 @@ export class SEAdapter implements RestCapableAdapter {
       })
 
       socket.on('connect_error', (err: Error) => {
-        this.setState('error')
+        this.setState('error', { reason: 'network', message: err.message })
         reject(err)
       })
 
@@ -274,8 +276,16 @@ export class SEAdapter implements RestCapableAdapter {
     }
   }
 
-  private setState(state: ConnectionState): void {
+  private setState(
+    state: ConnectionState,
+    detail?: { reason?: AdapterStateReason; message?: string },
+  ): void {
     this._state = state
-    this.stateHandler?.(state)
+    const info: AdapterStateInfo = {
+      state,
+      ...(detail?.reason !== undefined && { reason: detail.reason }),
+      ...(detail?.message !== undefined && { message: detail.message }),
+    }
+    this.stateHandler?.(info)
   }
 }

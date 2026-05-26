@@ -30,6 +30,30 @@ export type AdapterEventHandler = (event: AdapterEmittedEvent) => void
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error'
 
+/**
+ * Structured reason an adapter is in its current state. Surfaced so consumers
+ * can decide whether to prompt the user to reconnect (`token_revoked`,
+ * `scope_missing`), retry silently (`network`), or just log
+ * (`subscription_failed`).
+ */
+export type AdapterStateReason =
+  | 'token_expired'
+  | 'token_revoked'
+  | 'scope_missing'
+  | 'network'
+  | 'subscription_failed'
+  | 'unknown'
+
+/**
+ * Rich state snapshot. `reason` is only populated when state is `error` or
+ * `reconnecting`; `message` is a human-readable detail string for UI/logs.
+ */
+export interface AdapterStateInfo {
+  state: ConnectionState
+  reason?: AdapterStateReason
+  message?: string
+}
+
 // ─── Adapter interface ────────────────────────────────────────────────────────
 
 export interface PlatformAdapter {
@@ -70,9 +94,11 @@ export interface PlatformAdapter {
   onEvent(handler: AdapterEventHandler): void
 
   /**
-   * Register a handler for state changes.
+   * Register a handler for state changes. Receives the full state snapshot
+   * (state + optional reason + optional message). Optional on the adapter
+   * for back-compat; adapters that never push richer info can omit it.
    */
-  onStateChange?(handler: (state: ConnectionState) => void): void
+  onStateChange?(handler: (info: AdapterStateInfo) => void): void
 }
 
 // ─── REST adapter interface ───────────────────────────────────────────────────
