@@ -149,11 +149,30 @@ export class TwitchAdapter implements RestCapableAdapter {
         // ignored — connection still proceeds with id-as-channel fallback
       }
       await this.eventSub.connect()
-      this.setState('connected')
+      // Surface scope problems via state — vspark renders a warning when
+      // some subscriptions were skipped because the token lacks the scope.
+      const subs = this.eventSub.getSubscriptionResults()
+      const missing = subs.filter((s) => s.status === 'scope_missing' || s.status === 'forbidden')
+      if (missing.length > 0) {
+        this.setState('connected', {
+          reason: 'scope_missing',
+          message: `${missing.length} event type(s) unavailable due to missing scopes or affiliate eligibility: ${missing.map((m) => m.type).join(', ')}`,
+        })
+      } else {
+        this.setState('connected')
+      }
     } catch (e) {
       this.setState('error', classifyConnectError(e))
       throw e
     }
+  }
+
+  /**
+   * Per-subscription outcome from the last connect. Use this to render a
+   * detailed "which event types work" indicator in the Accounts UI.
+   */
+  subscriptionResults() {
+    return this.eventSub.getSubscriptionResults()
   }
 
   async disconnect(): Promise<void> {

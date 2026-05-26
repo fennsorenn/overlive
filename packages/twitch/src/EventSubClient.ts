@@ -1,6 +1,43 @@
 import type { TwitchAdapterConfig } from './config.js'
+import type { TwitchScope } from '@overlive/twitch-oauth'
+import { validateAccessToken } from '@overlive/twitch-oauth'
 
 export type EventSubHandler = (subscriptionType: string, event: unknown) => void
+
+/**
+ * Outcome of attempting a single EventSub subscription. Surfaces individual
+ * failures rather than failing the whole connect.
+ */
+export interface SubscriptionResult {
+  type: string
+  status: 'ok' | 'scope_missing' | 'forbidden' | 'failed'
+  reason?: string
+  /** When status is 'scope_missing', the scope(s) the token didn't have. */
+  missingScopes?: TwitchScope[]
+}
+
+/**
+ * Mapping from EventSub subscription type to the Twitch OAuth scopes Twitch
+ * requires the access token to hold. Used by the pre-flight scope checker
+ * to skip subscriptions that will obviously 403.
+ *
+ * Source: https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/
+ */
+const SUBSCRIPTION_SCOPES: Record<string, TwitchScope[]> = {
+  'channel.cheer':                                       ['bits:read'],
+  'channel.subscribe':                                    ['channel:read:subscriptions'],
+  'channel.subscription.gift':                            ['channel:read:subscriptions'],
+  'channel.subscription.message':                         ['channel:read:subscriptions'],
+  'channel.channel_points_custom_reward_redemption.add':  ['channel:read:redemptions'],
+  'channel.raid':                                         [],
+  'channel.follow':                                       ['moderator:read:followers'],
+  'channel.ban':                                          ['channel:moderate'],
+  'channel.chat.message':                                 ['user:read:chat'],
+  'channel.chat.message_delete':                          ['moderator:read:chat_messages'],
+  'channel.ad_break.begin':                               ['channel:read:ads'],
+  'stream.online':                                        [],
+  'stream.offline':                                       [],
+}
 
 interface EventSubMessage {
   metadata: {
@@ -25,6 +62,9 @@ export class TwitchEventSubClient {
   private reconnectAttempts = 0
   private shouldReconnect = true
   private keepaliveTimer: ReturnType<typeof setTimeout> | null = null
+
+  /** Last subscription attempt outcomes — refreshed on every connect. */
+  private lastResults: SubscriptionResult[] = []
 
   // Dynamic access token getter — set by the adapter so refreshes are
   // immediately reflected in subscription requests.
@@ -52,6 +92,14 @@ export class TwitchEventSubClient {
 
   onEvent(handler: EventSubHandler): void {
     this.handler = handler
+  }
+
+  /**
+   * Per-subscription results from the most recent subscribeToAll(). Useful
+   * for surfacing scope problems to the user.
+   */
+  getSubscriptionResults(): SubscriptionResult[] {
+    return this.lastResults
   }
 
   async connect(): Promise<void> {
@@ -162,7 +210,43 @@ export class TwitchEventSubClient {
       { type: 'stream.offline',                                       version: '1' },
     ]
 
-    await Promise.all(subscriptions.map((sub) => this.createSubscription(sub.type, sub.version)))
+    // Pre-flight scope check: ask Twitch what scopes the current token
+    // actually has, then skip subscriptions that will obviously 403.
+    // If validate itself fails, we proceed without skipping — the per-type
+    // tolerant subscribe still surfaces failures.
+    let grantedScopes: Set<TwitchScope> | null = null
+    try {
+      const v = await validateAccessToken(this.getAccessToken())
+      grantedScopes = new Set(v.scopes)
+    } catch {
+      grantedScopes = null
+    }
+
+    this.lastResults = await Promise.all(
+      subscriptions.map(async (sub): Promise<SubscriptionResult> => {
+        // Scope pre-check
+        if (grantedScopes) {
+          const required = SUBSCRIPTION_SCOPES[sub.type] ?? []
+          const missing = required.filter((s) => !grantedScopes!.has(s))
+          if (missing.length > 0) {
+            return { type: sub.type, status: 'scope_missing', missingScopes: missing }
+          }
+        }
+        // Try to subscribe — tolerant of per-type failure
+        try {
+          await this.createSubscription(sub.type, sub.version)
+          return { type: sub.type, status: 'ok' }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          // Twitch 403 for cheers/subs on non-affiliate channels, scope
+          // mismatches, etc. — classify so consumers can show the right hint.
+          if (msg.includes('403')) {
+            return { type: sub.type, status: 'forbidden', reason: msg }
+          }
+          return { type: sub.type, status: 'failed', reason: msg }
+        }
+      }),
+    )
   }
 
   private async createSubscription(type: string, version: string): Promise<void> {
