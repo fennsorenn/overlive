@@ -9,6 +9,7 @@ import type {
 import type { TwitchAdapterConfig } from './config.js'
 import { TwitchEventSubClient } from './EventSubClient.js'
 import { TwitchRestClient } from './TwitchRestClient.js'
+import { refreshAccessToken } from '@overlive/twitch-oauth'
 import {
   normalizeCheer,
   normalizeRedemption,
@@ -53,6 +54,10 @@ export class TwitchAdapter implements RestCapableAdapter {
   /** Platform-native broadcaster id. Stamped as `channelId` on every event. */
   private readonly channelId: string
 
+  // Current refresh token — mutable so we can persist the rotated value
+  // Twitch may hand back on each refresh.
+  private refreshToken: string | undefined
+
   constructor(private readonly config: TwitchAdapterConfig) {
     this.eventSub = new TwitchEventSubClient(config)
     this.rest = new TwitchRestClient(
@@ -60,6 +65,15 @@ export class TwitchAdapter implements RestCapableAdapter {
       config.accessToken,
       config.broadcasterId,
     )
+    this.refreshToken = config.refreshToken
+
+    // Install the 401 → refresh hook on REST and EventSub only if we have
+    // the bits to refresh.
+    if (config.clientSecret && this.refreshToken) {
+      const hook = () => this.refreshAndRotate()
+      this.rest._setOn401(hook)
+      this.eventSub.setOn401Hook(hook)
+    }
 
     const prefix = config.commandPrefix ?? '!'
     this.commandPrefixes = Array.isArray(prefix) ? prefix : [prefix]
@@ -73,6 +87,41 @@ export class TwitchAdapter implements RestCapableAdapter {
     this.eventSub.onEvent((type, event) => {
       this.dispatch(type, event)
     })
+  }
+
+  /**
+   * Refresh the access token using the stored refresh token. Updates the
+   * REST client, persists the new tokens via onTokenRefreshed, and returns
+   * the new access token. Throws on permanent failure (refresh token
+   * revoked / expired) — caller should treat as needs-reauth.
+   */
+  private async refreshAndRotate(): Promise<string> {
+    if (!this.config.clientSecret || !this.refreshToken) {
+      throw new Error('TwitchAdapter: cannot refresh — clientSecret or refreshToken missing')
+    }
+    try {
+      const tokens = await refreshAccessToken({
+        clientId: this.config.clientId,
+        clientSecret: this.config.clientSecret,
+        refreshToken: this.refreshToken,
+      })
+      this.refreshToken = tokens.refreshToken
+      this.rest.setAccessToken(tokens.accessToken)
+      this.eventSub.setAccessToken(tokens.accessToken)
+      await this.config.onTokenRefreshed?.({
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: tokens.expiresIn,
+      })
+      return tokens.accessToken
+    } catch (e) {
+      // Refresh token is dead — the user must reauth.
+      this.setState('error', {
+        reason: 'token_revoked',
+        message: e instanceof Error ? e.message : String(e),
+      })
+      throw e
+    }
   }
 
   get state(): ConnectionState {

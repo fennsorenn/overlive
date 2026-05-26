@@ -95,6 +95,9 @@ importers:
       '@overlive/core':
         specifier: workspace:*
         version: link:../core
+      '@overlive/twitch-oauth':
+        specifier: workspace:*
+        version: link:../twitch-oauth
     devDependencies:
       typescript:
         specifier: ^5.4.0

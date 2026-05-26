@@ -26,7 +26,29 @@ export class TwitchEventSubClient {
   private shouldReconnect = true
   private keepaliveTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(private readonly config: TwitchAdapterConfig) {}
+  // Dynamic access token getter — set by the adapter so refreshes are
+  // immediately reflected in subscription requests.
+  private getAccessToken: () => string
+  /**
+   * Refresh-and-retry hook, installed by the adapter when refresh creds are
+   * available. Returns the new access token; throws to surface a permanent
+   * failure.
+   */
+  private on401: (() => Promise<string>) | null = null
+
+  constructor(private readonly config: TwitchAdapterConfig) {
+    this.getAccessToken = () => config.accessToken
+  }
+
+  /** Replace the access token used for subscription requests. */
+  setAccessToken(token: string): void {
+    this.getAccessToken = () => token
+  }
+
+  /** Install the 401-refresh hook (the adapter wires this up). */
+  setOn401Hook(hook: (() => Promise<string>) | null): void {
+    this.on401 = hook
+  }
 
   onEvent(handler: EventSubHandler): void {
     this.handler = handler
@@ -162,11 +184,11 @@ export class TwitchEventSubClient {
       condition['moderator_user_id'] = userId
     }
 
-    const res = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
+    const doRequest = (): Promise<Response> => fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
       method: 'POST',
       headers: {
         'Client-Id': this.config.clientId,
-        Authorization: `Bearer ${this.config.accessToken}`,
+        Authorization: `Bearer ${this.getAccessToken()}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -179,6 +201,16 @@ export class TwitchEventSubClient {
         },
       }),
     })
+
+    let res = await doRequest()
+    if (res.status === 401 && this.on401) {
+      try {
+        await this.on401()
+        res = await doRequest()
+      } catch {
+        // fall through with the 401
+      }
+    }
 
     if (!res.ok && res.status !== 409) {
       // 409 = already subscribed, fine
