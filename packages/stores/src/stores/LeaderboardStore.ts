@@ -44,8 +44,8 @@ export function createLeaderboardStore(
 
   const store = createCollectionStore<LeaderboardEntry>({
     getKey: (entry) => entry.username,
-    resetThreshold: options.resetThreshold,
-    initialItems: options.initialEntries,
+    ...(options.resetThreshold !== undefined && { resetThreshold: options.resetThreshold }),
+    ...(options.initialEntries && { initialItems: options.initialEntries }),
   })
 
   const sub = kit.on(
@@ -94,7 +94,7 @@ export function createLeaderboardStore(
       const finalMap = new Map(sorted)
       store.applyMap(finalMap)
     },
-    { channels: options.channels },
+    { ...(options.channels && { channels: options.channels }) },
   )
 
   store.onDestroy(() => sub.unsubscribe())

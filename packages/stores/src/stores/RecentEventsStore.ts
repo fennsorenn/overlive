@@ -23,7 +23,7 @@ export function createRecentEventsStore(
 
   const store = createCollectionStore<OverliveEvent>({
     getKey: (event) => event.id,
-    resetThreshold: options.resetThreshold,
+    ...(options.resetThreshold !== undefined && { resetThreshold: options.resetThreshold }),
   })
 
   const push = (event: OverliveEvent) => {
@@ -44,12 +44,12 @@ export function createRecentEventsStore(
     for (const type of options.types) {
       subs.push(
         kit.on(type as EventType, push as (e: OverliveEvent) => void, {
-          channels: options.channels,
+          ...(options.channels && { channels: options.channels }),
         }),
       )
     }
   } else {
-    subs.push(kit.onAny(push, { channels: options.channels }))
+    subs.push(kit.onAny(push, { ...(options.channels && { channels: options.channels }) }))
   }
 
   store.onDestroy(() => {

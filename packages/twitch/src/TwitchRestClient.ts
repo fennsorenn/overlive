@@ -76,9 +76,10 @@ export class TwitchRestClient implements AdapterRestClient {
     const stream = data.data[0] as Record<string, unknown> | undefined
     if (!stream) return null
 
+    const category = String(stream['game_name'] ?? '')
     return {
       title: String(stream['title'] ?? ''),
-      category: String(stream['game_name'] ?? '') || undefined,
+      ...(category ? { category } : {}),
       viewerCount: Number(stream['viewer_count'] ?? 0),
       startedAt: new Date(String(stream['started_at'] ?? '')),
       platform: 'twitch',

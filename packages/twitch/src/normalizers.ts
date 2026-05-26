@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto'
 import type {
   RedemptionEvent,
   SubscriptionEvent,
@@ -13,7 +12,23 @@ import type {
   SubscriptionTier,
 } from '@overlive/core'
 
+// Normalizers produce events *before* the kit stamps `sourceInstanceId`,
+// so each return type omits that field.
+type Emitted<E> = Omit<E, 'sourceInstanceId'>
+
 const PLATFORM = 'twitch' as const
+
+const randomUUID = (): string => globalThis.crypto.randomUUID()
+
+/**
+ * Build a partial object for an optional field, omitted when the value is
+ * falsy. Used to satisfy `exactOptionalPropertyTypes: true` — assigning
+ * `undefined` to an optional property is not allowed, but omitting the key
+ * is.
+ */
+function opt<K extends string, V>(key: K, value: V | undefined | null | '' | 0): { [P in K]?: V } {
+  return value ? ({ [key]: value } as { [P in K]?: V }) : ({} as { [P in K]?: V })
+}
 
 function tier(raw: string): SubscriptionTier {
   if (raw === '1000') return 'tier1'
@@ -25,7 +40,7 @@ function tier(raw: string): SubscriptionTier {
 
 // ─── Cheer (bits) ────────────────────────────────────────────────────────────
 
-export function normalizeCheer(raw: unknown, channel: string): RedemptionEvent {
+export function normalizeCheer(raw: unknown, channel: string): Emitted<RedemptionEvent> {
   const e = raw as Record<string, unknown>
   return {
     id: randomUUID(),
@@ -37,19 +52,19 @@ export function normalizeCheer(raw: unknown, channel: string): RedemptionEvent {
     data: {
       username: String(e['user_login'] ?? ''),
       displayName: String(e['user_name'] ?? ''),
-      userId: String(e['user_id'] ?? ''),
+      ...opt('userId', String(e['user_id'] ?? '')),
       currency: {
         kind: 'bits',
         amount: Number(e['bits'] ?? 0),
       },
-      message: String(e['message'] ?? '') || undefined,
+      ...opt('message', String(e['message'] ?? '')),
     },
   }
 }
 
 // ─── Channel point redemption ────────────────────────────────────────────────
 
-export function normalizeRedemption(raw: unknown, channel: string): RedemptionEvent {
+export function normalizeRedemption(raw: unknown, channel: string): Emitted<RedemptionEvent> {
   const e = raw as Record<string, unknown>
   const reward = (e['reward'] ?? {}) as Record<string, unknown>
   return {
@@ -62,7 +77,7 @@ export function normalizeRedemption(raw: unknown, channel: string): RedemptionEv
     data: {
       username: String(e['user_login'] ?? ''),
       displayName: String(e['user_name'] ?? ''),
-      userId: String(e['user_id'] ?? ''),
+      ...opt('userId', String(e['user_id'] ?? '')),
       currency: {
         kind: 'channel_points',
         amount: Number(reward['cost'] ?? 0),
@@ -70,14 +85,14 @@ export function normalizeRedemption(raw: unknown, channel: string): RedemptionEv
         rewardId: String(reward['id'] ?? ''),
         requiresApproval: Boolean(reward['should_redemptions_skip_request_queue'] === false),
       },
-      message: String((e['user_input'] as string) ?? '') || undefined,
+      ...opt('message', String((e['user_input'] as string) ?? '')),
     },
   }
 }
 
 // ─── New subscription ────────────────────────────────────────────────────────
 
-export function normalizeSubscription(raw: unknown, channel: string): SubscriptionEvent {
+export function normalizeSubscription(raw: unknown, channel: string): Emitted<SubscriptionEvent> {
   const e = raw as Record<string, unknown>
   return {
     id: randomUUID(),
@@ -89,7 +104,7 @@ export function normalizeSubscription(raw: unknown, channel: string): Subscripti
     data: {
       username: String(e['user_login'] ?? ''),
       displayName: String(e['user_name'] ?? ''),
-      userId: String(e['user_id'] ?? ''),
+      ...opt('userId', String(e['user_id'] ?? '')),
       tier: tier(String(e['tier'] ?? '')),
       months: 1,
       isFirst: !e['is_gift'],
@@ -101,7 +116,7 @@ export function normalizeSubscription(raw: unknown, channel: string): Subscripti
 
 // ─── Resub message ────────────────────────────────────────────────────────────
 
-export function normalizeResubMessage(raw: unknown, channel: string): SubscriptionEvent {
+export function normalizeResubMessage(raw: unknown, channel: string): Emitted<SubscriptionEvent> {
   const e = raw as Record<string, unknown>
   const msg = (e['message'] ?? {}) as Record<string, unknown>
   return {
@@ -114,21 +129,21 @@ export function normalizeResubMessage(raw: unknown, channel: string): Subscripti
     data: {
       username: String(e['user_login'] ?? ''),
       displayName: String(e['user_name'] ?? ''),
-      userId: String(e['user_id'] ?? ''),
+      ...opt('userId', String(e['user_id'] ?? '')),
       tier: tier(String(e['tier'] ?? '')),
       months: Number(e['cumulative_months'] ?? 1),
-      streak: Number(e['streak_months'] ?? 0) || undefined,
+      ...opt('streak', Number(e['streak_months'] ?? 0)),
       isFirst: false,
       isResub: true,
       isGift: false,
-      message: String(msg['text'] ?? '') || undefined,
+      ...opt('message', String(msg['text'] ?? '')),
     },
   }
 }
 
 // ─── Gift bomb ────────────────────────────────────────────────────────────────
 
-export function normalizeGiftBomb(raw: unknown, channel: string): GiftBombEvent {
+export function normalizeGiftBomb(raw: unknown, channel: string): Emitted<GiftBombEvent> {
   const e = raw as Record<string, unknown>
   return {
     id: randomUUID(),
@@ -141,11 +156,11 @@ export function normalizeGiftBomb(raw: unknown, channel: string): GiftBombEvent 
       gifter: {
         username: String(e['user_login'] ?? 'anonymous'),
         displayName: String(e['user_name'] ?? 'anonymous'),
-        userId: String(e['user_id'] ?? '') || undefined,
+        ...opt('userId', String(e['user_id'] ?? '')),
       },
       count: Number(e['total'] ?? 1),
       tier: tier(String(e['tier'] ?? '')),
-      totalGifts: Number(e['cumulative_total'] ?? 0) || undefined,
+      ...opt('totalGifts', Number(e['cumulative_total'] ?? 0)),
       anonymous: !e['user_login'],
     },
   }
@@ -153,7 +168,7 @@ export function normalizeGiftBomb(raw: unknown, channel: string): GiftBombEvent 
 
 // ─── Raid ────────────────────────────────────────────────────────────────────
 
-export function normalizeRaid(raw: unknown, channel: string): RaidEvent {
+export function normalizeRaid(raw: unknown, channel: string): Emitted<RaidEvent> {
   const e = raw as Record<string, unknown>
   return {
     id: randomUUID(),
@@ -166,7 +181,7 @@ export function normalizeRaid(raw: unknown, channel: string): RaidEvent {
       from: {
         username: String(e['from_broadcaster_user_login'] ?? ''),
         displayName: String(e['from_broadcaster_user_name'] ?? ''),
-        userId: String(e['from_broadcaster_user_id'] ?? ''),
+        ...opt('userId', String(e['from_broadcaster_user_id'] ?? '')),
       },
       viewerCount: Number(e['viewers'] ?? 0),
     },
@@ -175,7 +190,7 @@ export function normalizeRaid(raw: unknown, channel: string): RaidEvent {
 
 // ─── Follow ───────────────────────────────────────────────────────────────────
 
-export function normalizeFollow(raw: unknown, channel: string): FollowEvent {
+export function normalizeFollow(raw: unknown, channel: string): Emitted<FollowEvent> {
   const e = raw as Record<string, unknown>
   return {
     id: randomUUID(),
@@ -187,19 +202,26 @@ export function normalizeFollow(raw: unknown, channel: string): FollowEvent {
     data: {
       username: String(e['user_login'] ?? ''),
       displayName: String(e['user_name'] ?? ''),
-      userId: String(e['user_id'] ?? ''),
+      ...opt('userId', String(e['user_id'] ?? '')),
     },
   }
 }
 
 // ─── Ban / timeout ───────────────────────────────────────────────────────────
 
-export function normalizeBan(raw: unknown, channel: string): BanEvent {
+export function normalizeBan(raw: unknown, channel: string): Emitted<BanEvent> {
   const e = raw as Record<string, unknown>
   const isPermanent = !e['ends_at']
   const endsAt = e['ends_at'] ? new Date(String(e['ends_at'])) : null
   const timeoutSeconds = endsAt
     ? Math.round((endsAt.getTime() - Date.now()) / 1000)
+    : undefined
+
+  const moderator = e['moderator_user_login']
+    ? {
+        username: String(e['moderator_user_login']),
+        ...opt('userId', String(e['moderator_user_id'] ?? '')),
+      }
     : undefined
 
   return {
@@ -212,15 +234,10 @@ export function normalizeBan(raw: unknown, channel: string): BanEvent {
     data: {
       username: String(e['user_login'] ?? ''),
       displayName: String(e['user_name'] ?? ''),
-      userId: String(e['user_id'] ?? ''),
-      moderator: e['moderator_user_login']
-        ? {
-            username: String(e['moderator_user_login']),
-            userId: String(e['moderator_user_id'] ?? ''),
-          }
-        : undefined,
-      reason: String(e['reason'] ?? '') || undefined,
-      timeoutSeconds: isPermanent ? undefined : timeoutSeconds,
+      ...opt('userId', String(e['user_id'] ?? '')),
+      ...opt('moderator', moderator),
+      ...opt('reason', String(e['reason'] ?? '')),
+      ...(isPermanent ? {} : opt('timeoutSeconds', timeoutSeconds)),
       isPermanent,
     },
   }
@@ -228,8 +245,15 @@ export function normalizeBan(raw: unknown, channel: string): BanEvent {
 
 // ─── Deleted message ──────────────────────────────────────────────────────────
 
-export function normalizeDeletedMessage(raw: unknown, channel: string): DeleteMessageEvent {
+export function normalizeDeletedMessage(raw: unknown, channel: string): Emitted<DeleteMessageEvent> {
   const e = raw as Record<string, unknown>
+  const moderator = e['moderator_user_login']
+    ? {
+        username: String(e['moderator_user_login']),
+        ...opt('userId', String(e['moderator_user_id'] ?? '')),
+      }
+    : undefined
+
   return {
     id: randomUUID(),
     type: 'chat.delete',
@@ -240,20 +264,15 @@ export function normalizeDeletedMessage(raw: unknown, channel: string): DeleteMe
     data: {
       messageId: String(e['message_id'] ?? ''),
       username: String(e['target_user_login'] ?? ''),
-      userId: String(e['target_user_id'] ?? ''),
-      moderator: e['moderator_user_login']
-        ? {
-            username: String(e['moderator_user_login']),
-            userId: String(e['moderator_user_id'] ?? ''),
-          }
-        : undefined,
+      ...opt('userId', String(e['target_user_id'] ?? '')),
+      ...opt('moderator', moderator),
     },
   }
 }
 
 // ─── Ad break ────────────────────────────────────────────────────────────────
 
-export function normalizeAdBreak(raw: unknown, channel: string): AdStartEvent {
+export function normalizeAdBreak(raw: unknown, channel: string): Emitted<AdStartEvent> {
   const e = raw as Record<string, unknown>
   return {
     id: randomUUID(),
@@ -271,7 +290,7 @@ export function normalizeAdBreak(raw: unknown, channel: string): AdStartEvent {
 
 // ─── Stream online / offline ──────────────────────────────────────────────────
 
-export function normalizeStreamOnline(raw: unknown, channel: string): StreamOnlineEvent {
+export function normalizeStreamOnline(raw: unknown, channel: string): Emitted<StreamOnlineEvent> {
   const e = raw as Record<string, unknown>
   return {
     id: randomUUID(),
@@ -282,12 +301,11 @@ export function normalizeStreamOnline(raw: unknown, channel: string): StreamOnli
     raw,
     data: {
       title: '',      // EventSub stream.online doesn't include title — fetch via REST
-      category: undefined,
     },
   }
 }
 
-export function normalizeStreamOffline(_raw: unknown, channel: string): StreamOfflineEvent {
+export function normalizeStreamOffline(_raw: unknown, channel: string): Emitted<StreamOfflineEvent> {
   return {
     id: randomUUID(),
     type: 'stream.offline',
@@ -339,7 +357,7 @@ interface EventSubFragment {
 export function normalizeChatMessage(
   raw: unknown,
   options: ChatNormalizerOptions,
-): ChatMessageEvent | ChatCommandEvent | null {
+): Emitted<ChatMessageEvent> | Emitted<ChatCommandEvent> | null {
   const e = raw as Record<string, unknown>
   const msg = (e['message'] ?? {}) as Record<string, unknown>
   const fragments = (msg['fragments'] ?? []) as EventSubFragment[]
@@ -353,14 +371,14 @@ export function normalizeChatMessage(
   const displayName = String(e['chatter_user_name'] ?? username)
   const userId = String(e['chatter_user_id'] ?? '')
   const text = String(msg['text'] ?? '')
-  const color = String(e['color'] ?? '') || undefined
+  const color = String(e['color'] ?? '')
   const isAction = e['message_type'] === 'action'
   const isHighlighted = e['message_type'] === 'channel_points_highlighted'
 
   // Cheer amount — sum all cheermote fragments
   const cheerAmount = fragments
     .filter((f) => f.type === 'cheermote' && f.cheermote)
-    .reduce((sum, f) => sum + (f.cheermote?.bits ?? 0), 0) || undefined
+    .reduce((sum, f) => sum + (f.cheermote?.bits ?? 0), 0)
 
   // Badge role checks
   const badgeIds = new Set(badges.map((b) => b.id))
@@ -376,9 +394,6 @@ export function normalizeChatMessage(
     switch (fragment.type) {
       case 'emote': {
         if (!fragment.emote) return { type: 'text', value: fragment.text }
-        // Build a partial ResolvedEmote with CDN URLs derived from the emote id.
-        // The emotes package will replace this with fully resolved data if
-        // resolveEmotes is requested by the subscriber.
         const id = fragment.emote.id
         const animated = fragment.emote.format.includes('animated')
         const fmt = animated ? 'animated' : 'static'
@@ -427,18 +442,18 @@ export function normalizeChatMessage(
             messageId,
             username,
             displayName,
-            userId,
+            ...opt('userId', userId),
             command,
             prefix,
             args,
             text,
-            color,
+            ...opt('color', color),
             badges,
             isMod,
             isSub,
             isBroadcaster,
           },
-        } satisfies ChatCommandEvent
+        } satisfies Emitted<ChatCommandEvent>
       }
     }
   }
@@ -456,25 +471,32 @@ export function normalizeChatMessage(
       messageId,
       username,
       displayName,
-      userId,
+      ...opt('userId', userId),
       text,
       tokens,
-      color,
+      ...opt('color', color),
       badges,
       isMod,
       isSub,
       isBroadcaster,
       isAction,
       isHighlighted,
-      cheerAmount,
+      ...opt('cheerAmount', cheerAmount),
     },
-  } satisfies ChatMessageEvent
+  } satisfies Emitted<ChatMessageEvent>
 }
 
 // ─── Chat message delete (EventSub channel.chat.message_delete) ───────────────
 
-export function normalizeChatMessageDelete(raw: unknown, channel: string): DeleteMessageEvent {
+export function normalizeChatMessageDelete(raw: unknown, channel: string): Emitted<DeleteMessageEvent> {
   const e = raw as Record<string, unknown>
+  const moderator = e['moderator_user_login']
+    ? {
+        username: String(e['moderator_user_login']),
+        ...opt('userId', String(e['moderator_user_id'] ?? '')),
+      }
+    : undefined
+
   return {
     id: randomUUID(),
     type: 'chat.delete',
@@ -485,13 +507,8 @@ export function normalizeChatMessageDelete(raw: unknown, channel: string): Delet
     data: {
       messageId: String(e['message_id'] ?? ''),
       username: String(e['target_user_login'] ?? ''),
-      userId: String(e['target_user_id'] ?? ''),
-      moderator: e['moderator_user_login']
-        ? {
-            username: String(e['moderator_user_login']),
-            userId: String(e['moderator_user_id'] ?? ''),
-          }
-        : undefined,
+      ...opt('userId', String(e['target_user_id'] ?? '')),
+      ...opt('moderator', moderator),
     },
   }
 }
