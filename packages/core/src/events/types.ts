@@ -89,8 +89,20 @@ export interface BaseEvent {
    * are registered (e.g. several Twitch accounts).
    */
   sourceInstanceId: string
-  /** Channel/broadcaster login name or id — normalized to lowercase */
+  /**
+   * The human-readable channel/broadcaster login or slug (lowercase).
+   * On Twitch this is the broadcaster login (e.g. "twitchplays").
+   * On platforms with no login concept (e.g. StreamElements), this falls
+   * back to the platform-native channel id.
+   */
   channel: string
+  /**
+   * The platform-native channel identifier (e.g. Twitch broadcaster_user_id).
+   * Present when the platform exposes a stable numeric/opaque id distinct
+   * from the human-readable `channel`. Absent for platforms where the two
+   * are the same.
+   */
+  channelId?: string
   /** Wall-clock time the event occurred (or was received if unknown) */
   timestamp: Date
   /**

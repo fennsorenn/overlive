@@ -11,6 +11,10 @@ import type {
 } from '@overlive/core'
 import { SERestClient } from './SERestClient.js'
 
+// SE normalizers, like Twitch's, return events without `sourceInstanceId` —
+// the kit stamps it on dispatch.
+type Emitted<E> = Omit<E, 'sourceInstanceId'>
+
 const PLATFORM = 'streamelements' as const
 const SE_REALTIME = 'https://realtime.streamelements.com'
 
@@ -168,7 +172,7 @@ export class SEAdapter implements RestCapableAdapter {
 
   // ─── Normalizers ──────────────────────────────────────────────────────────
 
-  private normalizeTip(data: Record<string, unknown>, channel: string): RedemptionEvent {
+  private normalizeTip(data: Record<string, unknown>, channel: string): Emitted<RedemptionEvent> {
     const e = (data['event'] ?? data) as Record<string, unknown>
     return {
       id: String(e['_id'] ?? randomUUID()),
@@ -191,7 +195,7 @@ export class SEAdapter implements RestCapableAdapter {
     }
   }
 
-  private normalizeSub(data: Record<string, unknown>, channel: string): SubscriptionEvent {
+  private normalizeSub(data: Record<string, unknown>, channel: string): Emitted<SubscriptionEvent> {
     const e = (data['event'] ?? data) as Record<string, unknown>
     return {
       id: randomUUID(),
@@ -214,7 +218,7 @@ export class SEAdapter implements RestCapableAdapter {
     }
   }
 
-  private normalizeRaid(data: Record<string, unknown>, channel: string): RaidEvent {
+  private normalizeRaid(data: Record<string, unknown>, channel: string): Emitted<RaidEvent> {
     const e = (data['event'] ?? data) as Record<string, unknown>
     return {
       id: randomUUID(),
@@ -233,7 +237,7 @@ export class SEAdapter implements RestCapableAdapter {
     }
   }
 
-  private normalizeFollow(data: Record<string, unknown>, channel: string): FollowEvent {
+  private normalizeFollow(data: Record<string, unknown>, channel: string): Emitted<FollowEvent> {
     const e = (data['event'] ?? data) as Record<string, unknown>
     return {
       id: randomUUID(),
@@ -249,7 +253,7 @@ export class SEAdapter implements RestCapableAdapter {
     }
   }
 
-  private normalizeCheer(data: Record<string, unknown>, channel: string): RedemptionEvent {
+  private normalizeCheer(data: Record<string, unknown>, channel: string): Emitted<RedemptionEvent> {
     const e = (data['event'] ?? data) as Record<string, unknown>
     return {
       id: randomUUID(),

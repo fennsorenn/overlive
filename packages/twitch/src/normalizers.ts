@@ -16,6 +16,21 @@ import type {
 // so each return type omits that field.
 type Emitted<E> = Omit<E, 'sourceInstanceId'>
 
+/**
+ * Channel identifier pair passed to every normalizer.
+ * `slug` is the human-readable login (what consumers filter on);
+ * `id` is the platform-native numeric id (Twitch broadcaster_user_id).
+ */
+export interface ChannelRef {
+  slug: string
+  id: string
+}
+
+/** Build the channel fields for an event payload from a ChannelRef. */
+function ch(ref: ChannelRef): { channel: string; channelId: string } {
+  return { channel: ref.slug, channelId: ref.id }
+}
+
 const PLATFORM = 'twitch' as const
 
 const randomUUID = (): string => globalThis.crypto.randomUUID()
@@ -40,13 +55,13 @@ function tier(raw: string): SubscriptionTier {
 
 // ─── Cheer (bits) ────────────────────────────────────────────────────────────
 
-export function normalizeCheer(raw: unknown, channel: string): Emitted<RedemptionEvent> {
+export function normalizeCheer(raw: unknown, channelRef: ChannelRef): Emitted<RedemptionEvent> {
   const e = raw as Record<string, unknown>
   return {
     id: randomUUID(),
     type: 'redemption',
     platform: PLATFORM,
-    channel,
+    ...ch(channelRef),
     timestamp: new Date(),
     raw,
     data: {
@@ -64,14 +79,14 @@ export function normalizeCheer(raw: unknown, channel: string): Emitted<Redemptio
 
 // ─── Channel point redemption ────────────────────────────────────────────────
 
-export function normalizeRedemption(raw: unknown, channel: string): Emitted<RedemptionEvent> {
+export function normalizeRedemption(raw: unknown, channelRef: ChannelRef): Emitted<RedemptionEvent> {
   const e = raw as Record<string, unknown>
   const reward = (e['reward'] ?? {}) as Record<string, unknown>
   return {
     id: String(e['id'] ?? randomUUID()),
     type: 'redemption',
     platform: PLATFORM,
-    channel,
+    ...ch(channelRef),
     timestamp: new Date(String(e['redeemed_at'] ?? Date.now())),
     raw,
     data: {
@@ -92,13 +107,13 @@ export function normalizeRedemption(raw: unknown, channel: string): Emitted<Rede
 
 // ─── New subscription ────────────────────────────────────────────────────────
 
-export function normalizeSubscription(raw: unknown, channel: string): Emitted<SubscriptionEvent> {
+export function normalizeSubscription(raw: unknown, channelRef: ChannelRef): Emitted<SubscriptionEvent> {
   const e = raw as Record<string, unknown>
   return {
     id: randomUUID(),
     type: 'subscription',
     platform: PLATFORM,
-    channel,
+    ...ch(channelRef),
     timestamp: new Date(),
     raw,
     data: {
@@ -116,14 +131,14 @@ export function normalizeSubscription(raw: unknown, channel: string): Emitted<Su
 
 // ─── Resub message ────────────────────────────────────────────────────────────
 
-export function normalizeResubMessage(raw: unknown, channel: string): Emitted<SubscriptionEvent> {
+export function normalizeResubMessage(raw: unknown, channelRef: ChannelRef): Emitted<SubscriptionEvent> {
   const e = raw as Record<string, unknown>
   const msg = (e['message'] ?? {}) as Record<string, unknown>
   return {
     id: randomUUID(),
     type: 'subscription',
     platform: PLATFORM,
-    channel,
+    ...ch(channelRef),
     timestamp: new Date(),
     raw,
     data: {
@@ -143,13 +158,13 @@ export function normalizeResubMessage(raw: unknown, channel: string): Emitted<Su
 
 // ─── Gift bomb ────────────────────────────────────────────────────────────────
 
-export function normalizeGiftBomb(raw: unknown, channel: string): Emitted<GiftBombEvent> {
+export function normalizeGiftBomb(raw: unknown, channelRef: ChannelRef): Emitted<GiftBombEvent> {
   const e = raw as Record<string, unknown>
   return {
     id: randomUUID(),
     type: 'gift_bomb',
     platform: PLATFORM,
-    channel,
+    ...ch(channelRef),
     timestamp: new Date(),
     raw,
     data: {
@@ -168,13 +183,13 @@ export function normalizeGiftBomb(raw: unknown, channel: string): Emitted<GiftBo
 
 // ─── Raid ────────────────────────────────────────────────────────────────────
 
-export function normalizeRaid(raw: unknown, channel: string): Emitted<RaidEvent> {
+export function normalizeRaid(raw: unknown, channelRef: ChannelRef): Emitted<RaidEvent> {
   const e = raw as Record<string, unknown>
   return {
     id: randomUUID(),
     type: 'raid',
     platform: PLATFORM,
-    channel,
+    ...ch(channelRef),
     timestamp: new Date(),
     raw,
     data: {
@@ -190,13 +205,13 @@ export function normalizeRaid(raw: unknown, channel: string): Emitted<RaidEvent>
 
 // ─── Follow ───────────────────────────────────────────────────────────────────
 
-export function normalizeFollow(raw: unknown, channel: string): Emitted<FollowEvent> {
+export function normalizeFollow(raw: unknown, channelRef: ChannelRef): Emitted<FollowEvent> {
   const e = raw as Record<string, unknown>
   return {
     id: randomUUID(),
     type: 'follow',
     platform: PLATFORM,
-    channel,
+    ...ch(channelRef),
     timestamp: new Date(String(e['followed_at'] ?? Date.now())),
     raw,
     data: {
@@ -209,7 +224,7 @@ export function normalizeFollow(raw: unknown, channel: string): Emitted<FollowEv
 
 // ─── Ban / timeout ───────────────────────────────────────────────────────────
 
-export function normalizeBan(raw: unknown, channel: string): Emitted<BanEvent> {
+export function normalizeBan(raw: unknown, channelRef: ChannelRef): Emitted<BanEvent> {
   const e = raw as Record<string, unknown>
   const isPermanent = !e['ends_at']
   const endsAt = e['ends_at'] ? new Date(String(e['ends_at'])) : null
@@ -228,7 +243,7 @@ export function normalizeBan(raw: unknown, channel: string): Emitted<BanEvent> {
     id: randomUUID(),
     type: 'ban',
     platform: PLATFORM,
-    channel,
+    ...ch(channelRef),
     timestamp: new Date(String(e['banned_at'] ?? Date.now())),
     raw,
     data: {
@@ -245,7 +260,7 @@ export function normalizeBan(raw: unknown, channel: string): Emitted<BanEvent> {
 
 // ─── Deleted message ──────────────────────────────────────────────────────────
 
-export function normalizeDeletedMessage(raw: unknown, channel: string): Emitted<DeleteMessageEvent> {
+export function normalizeDeletedMessage(raw: unknown, channelRef: ChannelRef): Emitted<DeleteMessageEvent> {
   const e = raw as Record<string, unknown>
   const moderator = e['moderator_user_login']
     ? {
@@ -258,7 +273,7 @@ export function normalizeDeletedMessage(raw: unknown, channel: string): Emitted<
     id: randomUUID(),
     type: 'chat.delete',
     platform: PLATFORM,
-    channel,
+    ...ch(channelRef),
     timestamp: new Date(),
     raw,
     data: {
@@ -272,13 +287,13 @@ export function normalizeDeletedMessage(raw: unknown, channel: string): Emitted<
 
 // ─── Ad break ────────────────────────────────────────────────────────────────
 
-export function normalizeAdBreak(raw: unknown, channel: string): Emitted<AdStartEvent> {
+export function normalizeAdBreak(raw: unknown, channelRef: ChannelRef): Emitted<AdStartEvent> {
   const e = raw as Record<string, unknown>
   return {
     id: randomUUID(),
     type: 'ad.start',
     platform: PLATFORM,
-    channel,
+    ...ch(channelRef),
     timestamp: new Date(String(e['started_at'] ?? Date.now())),
     raw,
     data: {
@@ -290,13 +305,13 @@ export function normalizeAdBreak(raw: unknown, channel: string): Emitted<AdStart
 
 // ─── Stream online / offline ──────────────────────────────────────────────────
 
-export function normalizeStreamOnline(raw: unknown, channel: string): Emitted<StreamOnlineEvent> {
+export function normalizeStreamOnline(raw: unknown, channelRef: ChannelRef): Emitted<StreamOnlineEvent> {
   const e = raw as Record<string, unknown>
   return {
     id: randomUUID(),
     type: 'stream.online',
     platform: PLATFORM,
-    channel,
+    ...ch(channelRef),
     timestamp: new Date(String(e['started_at'] ?? Date.now())),
     raw,
     data: {
@@ -305,12 +320,12 @@ export function normalizeStreamOnline(raw: unknown, channel: string): Emitted<St
   }
 }
 
-export function normalizeStreamOffline(_raw: unknown, channel: string): Emitted<StreamOfflineEvent> {
+export function normalizeStreamOffline(_raw: unknown, channelRef: ChannelRef): Emitted<StreamOfflineEvent> {
   return {
     id: randomUUID(),
     type: 'stream.offline',
     platform: PLATFORM,
-    channel,
+    ...ch(channelRef),
     timestamp: new Date(),
     raw: _raw,
     data: {},
@@ -323,7 +338,7 @@ import type { ChatMessageEvent, ChatCommandEvent, MessageToken, ResolvedEmote } 
 
 export interface ChatNormalizerOptions {
   commandPrefixes: string[]
-  channel: string
+  channelRef: ChannelRef
 }
 
 /**
@@ -435,7 +450,7 @@ export function normalizeChatMessage(
           id: messageId,
           type: 'chat.command',
           platform: PLATFORM,
-          channel: options.channel,
+          ...ch(options.channelRef),
           timestamp,
           raw,
           data: {
@@ -464,7 +479,7 @@ export function normalizeChatMessage(
     id: messageId,
     type: 'chat.message',
     platform: PLATFORM,
-    channel: options.channel,
+    ...ch(options.channelRef),
     timestamp,
     raw,
     data: {
@@ -488,7 +503,7 @@ export function normalizeChatMessage(
 
 // ─── Chat message delete (EventSub channel.chat.message_delete) ───────────────
 
-export function normalizeChatMessageDelete(raw: unknown, channel: string): Emitted<DeleteMessageEvent> {
+export function normalizeChatMessageDelete(raw: unknown, channelRef: ChannelRef): Emitted<DeleteMessageEvent> {
   const e = raw as Record<string, unknown>
   const moderator = e['moderator_user_login']
     ? {
@@ -501,7 +516,7 @@ export function normalizeChatMessageDelete(raw: unknown, channel: string): Emitt
     id: randomUUID(),
     type: 'chat.delete',
     platform: PLATFORM,
-    channel,
+    ...ch(channelRef),
     timestamp: new Date(),
     raw,
     data: {

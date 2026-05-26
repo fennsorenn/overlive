@@ -132,6 +132,17 @@ export class TwitchRestClient implements AdapterRestClient {
     }
   }
 
+  async getUserById(id: string): Promise<{ id: string; login: string; displayName: string } | null> {
+    const data = await this.get<{ data: unknown[] }>('/users', { id })
+    const user = data.data[0] as Record<string, unknown> | undefined
+    if (!user) return null
+    return {
+      id: String(user['id'] ?? ''),
+      login: String(user['login'] ?? ''),
+      displayName: String(user['display_name'] ?? ''),
+    }
+  }
+
   // ─── Moderators ───────────────────────────────────────────────────────────
 
   async getModerators(): Promise<Array<{ userId: string; username: string; displayName: string }>> {

@@ -22,6 +22,7 @@ import {
   normalizeStreamOffline,
   normalizeChatMessage,
   normalizeChatMessageDelete,
+  type ChannelRef,
 } from './normalizers.js'
 
 export class TwitchAdapter implements RestCapableAdapter {
@@ -42,7 +43,14 @@ export class TwitchAdapter implements RestCapableAdapter {
   readonly rest: TwitchRestClient
 
   private readonly commandPrefixes: string[]
-  private readonly channel: string
+  /**
+   * Human-readable broadcaster login (e.g. "twitchplays"). Initially set to
+   * the broadcaster id and replaced with the resolved login during connect.
+   * Stamped as `channel` on every event.
+   */
+  private channel: string
+  /** Platform-native broadcaster id. Stamped as `channelId` on every event. */
+  private readonly channelId: string
 
   constructor(private readonly config: TwitchAdapterConfig) {
     this.eventSub = new TwitchEventSubClient(config)
@@ -55,9 +63,11 @@ export class TwitchAdapter implements RestCapableAdapter {
     const prefix = config.commandPrefix ?? '!'
     this.commandPrefixes = Array.isArray(prefix) ? prefix : [prefix]
 
-    // broadcasterId is used as channel identifier throughout —
-    // the REST client can resolve the login name if needed
+    // Initial channel value is the broadcaster id; on connect we resolve it
+    // to the broadcaster's login so events carry the human-readable slug.
+    // Until resolved (or if resolution fails), we fall back to the id.
     this.channel = config.broadcasterId
+    this.channelId = config.broadcasterId
 
     this.eventSub.onEvent((type, event) => {
       this.dispatch(type, event)
@@ -79,6 +89,15 @@ export class TwitchAdapter implements RestCapableAdapter {
   async connect(): Promise<void> {
     this.setState('connecting')
     try {
+      // Resolve the broadcaster login so events carry the human-readable
+      // slug rather than the numeric id. Failures here are non-fatal —
+      // the adapter falls back to the id-as-channel.
+      try {
+        const user = await this.rest.getUserById(this.config.broadcasterId)
+        if (user?.login) this.channel = user.login
+      } catch {
+        // ignored — connection still proceeds with id-as-channel fallback
+      }
       await this.eventSub.connect()
       this.setState('connected')
     } catch (e) {
@@ -92,56 +111,62 @@ export class TwitchAdapter implements RestCapableAdapter {
     this.setState('disconnected')
   }
 
+  private get channelRef(): ChannelRef {
+    return { slug: this.channel, id: this.channelId }
+  }
+
   // ─── EventSub dispatch ────────────────────────────────────────────────────
 
   private dispatch(type: string, raw: unknown): void {
     if (!this.handler) return
 
+    const ref = this.channelRef
+
     try {
       switch (type) {
         case 'channel.cheer':
-          this.handler(normalizeCheer(raw, this.channel))
+          this.handler(normalizeCheer(raw, ref))
           break
         case 'channel.channel_points_custom_reward_redemption.add':
-          this.handler(normalizeRedemption(raw, this.channel))
+          this.handler(normalizeRedemption(raw, ref))
           break
         case 'channel.subscribe':
-          this.handler(normalizeSubscription(raw, this.channel))
+          this.handler(normalizeSubscription(raw, ref))
           break
         case 'channel.subscription.message':
-          this.handler(normalizeResubMessage(raw, this.channel))
+          this.handler(normalizeResubMessage(raw, ref))
           break
         case 'channel.subscription.gift':
-          this.handler(normalizeGiftBomb(raw, this.channel))
+          this.handler(normalizeGiftBomb(raw, ref))
           break
         case 'channel.raid':
-          this.handler(normalizeRaid(raw, this.channel))
+          this.handler(normalizeRaid(raw, ref))
           break
         case 'channel.follow':
-          this.handler(normalizeFollow(raw, this.channel))
+          this.handler(normalizeFollow(raw, ref))
           break
         case 'channel.ban':
-          this.handler(normalizeBan(raw, this.channel))
+          this.handler(normalizeBan(raw, ref))
           break
         case 'channel.chat.message': {
           const event = normalizeChatMessage(raw, {
             commandPrefixes: this.commandPrefixes,
-            channel: this.channel,
+            channelRef: ref,
           })
           if (event) this.handler(event)
           break
         }
         case 'channel.chat.message_delete':
-          this.handler(normalizeChatMessageDelete(raw, this.channel))
+          this.handler(normalizeChatMessageDelete(raw, ref))
           break
         case 'channel.ad_break.begin':
-          this.handler(normalizeAdBreak(raw, this.channel))
+          this.handler(normalizeAdBreak(raw, ref))
           break
         case 'stream.online':
-          this.handler(normalizeStreamOnline(raw, this.channel))
+          this.handler(normalizeStreamOnline(raw, ref))
           break
         case 'stream.offline':
-          this.handler(normalizeStreamOffline(raw, this.channel))
+          this.handler(normalizeStreamOffline(raw, ref))
           break
       }
     } catch (e) {
