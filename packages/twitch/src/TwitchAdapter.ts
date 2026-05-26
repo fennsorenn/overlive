@@ -44,7 +44,7 @@ export class TwitchAdapter implements RestCapableAdapter {
   private readonly eventSub: TwitchEventSubClient
   readonly rest: TwitchRestClient
 
-  private readonly commandPrefixes: string[]
+  private commandPrefixes: string[]
   /**
    * Human-readable broadcaster login (e.g. "twitchplays"). Initially set to
    * the broadcaster id and replaced with the resolved login during connect.
@@ -178,6 +178,14 @@ export class TwitchAdapter implements RestCapableAdapter {
   async disconnect(): Promise<void> {
     await this.eventSub.disconnect()
     this.setState('disconnected')
+  }
+
+  /**
+   * Replace the command-prefix(es) used to detect chat commands. Takes
+   * effect for subsequent messages — no reconnect required.
+   */
+  setCommandPrefix(prefix: string | string[]): void {
+    this.commandPrefixes = Array.isArray(prefix) ? prefix : [prefix]
   }
 
   private get channelRef(): ChannelRef {
