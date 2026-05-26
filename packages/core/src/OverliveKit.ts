@@ -1,5 +1,5 @@
 import type { PlatformAdapter } from './adapter/types.js'
-import type { EventType, EventByType, OverliveEvent } from './events/types.js'
+import type { EventType, EventByType, OverliveEvent, AdapterEmittedEvent } from './events/types.js'
 import type { SubscribeOptions, Subscription } from './bus/TypedEventBus.js'
 import type { Middleware } from './middleware/pipeline.js'
 
@@ -60,14 +60,27 @@ export class OverliveKit {
   // ─── Adapter management ───────────────────────────────────────────────────
 
   /**
-   * Register a platform adapter.
+   * Register a platform adapter under a stable `instanceId`.
+   *
+   * Multiple instances of the same platform may be registered, as long as
+   * each has a distinct `instanceId` (e.g. a per-account UUID). If omitted,
+   * the platform name is used as the instance id — convenient for the
+   * single-account case but means a second adapter of the same platform
+   * must supply its own id.
+   *
    * Adapters can be registered before or after calling connect().
    */
-  use(adapter: PlatformAdapter): this {
-    this.registry.register(adapter)
+  use(adapter: PlatformAdapter, instanceId?: string): this {
+    const id = instanceId ?? adapter.platform
+    this.registry.register(id, adapter)
 
-    adapter.onEvent(async (event) => {
-      await this.pipeline.run(event, async (evt) => {
+    adapter.onEvent(async (event: AdapterEmittedEvent) => {
+      // Stamp the event with the registry instance id so consumers can
+      // route by account when multiple adapters of the same platform exist.
+      // Cast through `unknown` because Omit-of-union spread doesn't refine
+      // the discriminant back to the concrete event in TS.
+      const stamped = { ...event, sourceInstanceId: id } as unknown as OverliveEvent
+      await this.pipeline.run(stamped, async (evt) => {
         await this.bus.emit(evt)
       })
     })
@@ -76,13 +89,13 @@ export class OverliveKit {
   }
 
   /**
-   * Unregister a platform adapter and disconnect it.
+   * Unregister an adapter by `instanceId` and disconnect it.
    */
-  async remove(platform: string): Promise<void> {
-    const adapter = this.registry.get(platform)
+  async remove(instanceId: string): Promise<void> {
+    const adapter = this.registry.get(instanceId)
     if (adapter) {
       await adapter.disconnect()
-      this.registry.unregister(platform)
+      this.registry.unregister(instanceId)
     }
   }
 

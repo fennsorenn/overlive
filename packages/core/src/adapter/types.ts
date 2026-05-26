@@ -1,4 +1,4 @@
-import type { OverliveEvent, EventType, Platform } from '../events/types.js'
+import type { AdapterEmittedEvent, EventType, Platform } from '../events/types.js'
 
 // ─── Suppression map ─────────────────────────────────────────────────────────
 
@@ -19,7 +19,12 @@ export type SuppressionMap = Partial<Record<EventType, Platform[]>>
 
 // ─── Adapter event handler ────────────────────────────────────────────────────
 
-export type AdapterEventHandler = (event: OverliveEvent) => void
+/**
+ * Adapters emit `AdapterEmittedEvent`s — i.e. fully-formed `OverliveEvent`s
+ * minus `sourceInstanceId`, which the SDK stamps as the event passes through
+ * the kit. Normalizers therefore never need to know their adapter's id.
+ */
+export type AdapterEventHandler = (event: AdapterEmittedEvent) => void
 
 // ─── Connection state ────────────────────────────────────────────────────────
 

@@ -27,7 +27,11 @@ export type {
   ResolvedEmote,
   EmotePlatform,
   MessageToken,
+  AdapterEmittedEvent,
 } from './events/types.js'
+
+// Registry
+export type { RegistryEntry } from './adapter/AdapterRegistry.js'
 
 // Adapter interface — for adapter package authors
 export type {
