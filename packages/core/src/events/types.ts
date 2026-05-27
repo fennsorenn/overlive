@@ -82,8 +82,27 @@ export interface BaseEvent {
   id: string
   /** Which platform this event originated from */
   platform: Platform
-  /** Channel/broadcaster login name or id — normalized to lowercase */
+  /**
+   * The registry instance id of the adapter that emitted this event.
+   * Stamped by the SDK when the adapter dispatches — consumers do not set it.
+   * Lets consumers route events when multiple adapters of the same platform
+   * are registered (e.g. several Twitch accounts).
+   */
+  sourceInstanceId: string
+  /**
+   * The human-readable channel/broadcaster login or slug (lowercase).
+   * On Twitch this is the broadcaster login (e.g. "twitchplays").
+   * On platforms with no login concept (e.g. StreamElements), this falls
+   * back to the platform-native channel id.
+   */
   channel: string
+  /**
+   * The platform-native channel identifier (e.g. Twitch broadcaster_user_id).
+   * Present when the platform exposes a stable numeric/opaque id distinct
+   * from the human-readable `channel`. Absent for platforms where the two
+   * are the same.
+   */
+  channelId?: string
   /** Wall-clock time the event occurred (or was received if unknown) */
   timestamp: Date
   /**
@@ -330,3 +349,23 @@ export type EventType = OverliveEvent['type']
 
 /** Extract the event object for a given type string */
 export type EventByType<T extends EventType> = Extract<OverliveEvent, { type: T }>
+
+/**
+ * Event shape as produced by adapter normalizers, before the core stamps
+ * `sourceInstanceId`. Adapters never need to know their own instance id —
+ * the SDK injects it as events flow through the kit.
+ */
+export type AdapterEmittedEvent =
+  | Omit<RedemptionEvent,        'sourceInstanceId'>
+  | Omit<SubscriptionEvent,      'sourceInstanceId'>
+  | Omit<GiftBombEvent,          'sourceInstanceId'>
+  | Omit<RaidEvent,              'sourceInstanceId'>
+  | Omit<FollowEvent,            'sourceInstanceId'>
+  | Omit<ChatMessageEvent,       'sourceInstanceId'>
+  | Omit<ChatCommandEvent,       'sourceInstanceId'>
+  | Omit<AdStartEvent,           'sourceInstanceId'>
+  | Omit<AdEndEvent,             'sourceInstanceId'>
+  | Omit<BanEvent,               'sourceInstanceId'>
+  | Omit<DeleteMessageEvent,     'sourceInstanceId'>
+  | Omit<StreamOnlineEvent,      'sourceInstanceId'>
+  | Omit<StreamOfflineEvent,     'sourceInstanceId'>

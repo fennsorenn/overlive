@@ -132,8 +132,7 @@ export class UnifiedRestClient {
   private getRestClients(platform?: Platform | Platform[]) {
     const adapters = platform
       ? (Array.isArray(platform) ? platform : [platform])
-          .map((p) => this.registry.get(p))
-          .filter((a): a is NonNullable<typeof a> => a != null)
+          .flatMap((p) => this.registry.allOfPlatform(p))
       : this.registry.getAll()
 
     return adapters
@@ -143,15 +142,29 @@ export class UnifiedRestClient {
 
   /**
    * Access a platform-specific REST client directly for calls that have
-   * no cross-platform equivalent.
+   * no cross-platform equivalent. When multiple adapter instances of the
+   * same platform are registered, supply `instanceId` to disambiguate.
+   * Without it, the first registered instance of the platform is returned.
    *
    * @example
    * kit.rest.platform('twitch').getChannelRewards()
+   * kit.rest.platform('twitch', 'account-uuid-2').getChannelRewards()
    */
-  platform<T extends object = object>(platform: Platform): T {
-    const adapter = this.registry.get(platform)
+  platform<T extends object = object>(platform: Platform, instanceId?: string): T {
+    const adapter = instanceId
+      ? this.registry.get(instanceId)
+      : this.registry.firstOfPlatform(platform)
     if (!adapter) {
-      throw new Error(`No adapter registered for platform "${platform}"`)
+      throw new Error(
+        instanceId
+          ? `No adapter registered with instanceId "${instanceId}"`
+          : `No adapter registered for platform "${platform}"`,
+      )
+    }
+    if (adapter.platform !== platform) {
+      throw new Error(
+        `Adapter "${instanceId}" is platform "${adapter.platform}", not "${platform}"`,
+      )
     }
     if (!isRestCapable(adapter)) {
       throw new Error(`Adapter for platform "${platform}" does not support REST`)

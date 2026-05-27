@@ -2,25 +2,68 @@ import type { AdapterRestClient, Platform, ClipResult, StreamInfo, ChattersResul
 
 const HELIX = 'https://api.twitch.tv/helix'
 
+/**
+ * Hook the adapter installs so REST 401s trigger a token refresh + retry.
+ * Returns the new access token on success; throws on permanent failure.
+ */
+export type On401Hook = () => Promise<string>
+
 export class TwitchRestClient implements AdapterRestClient {
   readonly platform: Platform = 'twitch'
 
+  /**
+   * Access token getter — invoked on every request so refresh-in-flight
+   * updates take effect without rebuilding the client. The adapter holds
+   * the canonical token and rebinds via setAccessToken().
+   */
+  private getAccessToken: () => string
+  private on401: On401Hook | null = null
+
   constructor(
     private readonly clientId: string,
-    private readonly accessToken: string,
+    accessToken: string,
     private readonly broadcasterId: string,
-  ) {}
+  ) {
+    let token = accessToken
+    this.getAccessToken = () => token
+    // Internal setter so the adapter can rotate tokens after a refresh.
+    this.setAccessToken = (t: string) => { token = t }
+  }
+
+  /**
+   * Replace the access token used for subsequent requests. Called by the
+   * TwitchAdapter after a successful refresh.
+   */
+  readonly setAccessToken: (token: string) => void
+
+  /**
+   * Install the 401-refresh hook. The adapter calls this during construction.
+   */
+  _setOn401(hook: On401Hook | null): void {
+    this.on401 = hook
+  }
 
   private async get<T>(path: string, params: Record<string, string> = {}): Promise<T> {
     const url = new URL(`${HELIX}${path}`)
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
 
-    const res = await fetch(url, {
+    const doFetch = (): Promise<Response> => fetch(url, {
       headers: {
         'Client-Id': this.clientId,
-        Authorization: `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${this.getAccessToken()}`,
       },
     })
+
+    let res = await doFetch()
+    if (res.status === 401 && this.on401) {
+      // Try to refresh and retry once.
+      try {
+        await this.on401()
+        res = await doFetch()
+      } catch {
+        // Fall through with the original 401 response.
+      }
+    }
 
     if (!res.ok) {
       throw new Error(`Twitch API error: ${res.status} ${res.statusText} (${path})`)
@@ -76,9 +119,10 @@ export class TwitchRestClient implements AdapterRestClient {
     const stream = data.data[0] as Record<string, unknown> | undefined
     if (!stream) return null
 
+    const category = String(stream['game_name'] ?? '')
     return {
       title: String(stream['title'] ?? ''),
-      category: String(stream['game_name'] ?? '') || undefined,
+      ...(category ? { category } : {}),
       viewerCount: Number(stream['viewer_count'] ?? 0),
       startedAt: new Date(String(stream['started_at'] ?? '')),
       platform: 'twitch',
@@ -122,6 +166,17 @@ export class TwitchRestClient implements AdapterRestClient {
 
   async getUser(login: string): Promise<{ id: string; login: string; displayName: string } | null> {
     const data = await this.get<{ data: unknown[] }>('/users', { login })
+    const user = data.data[0] as Record<string, unknown> | undefined
+    if (!user) return null
+    return {
+      id: String(user['id'] ?? ''),
+      login: String(user['login'] ?? ''),
+      displayName: String(user['display_name'] ?? ''),
+    }
+  }
+
+  async getUserById(id: string): Promise<{ id: string; login: string; displayName: string } | null> {
+    const data = await this.get<{ data: unknown[] }>('/users', { id })
     const user = data.data[0] as Record<string, unknown> | undefined
     if (!user) return null
     return {

@@ -1,7 +1,7 @@
 {
-  "name": "@overlive/twitch",
+  "name": "@overlive/twitch-oauth",
   "version": "0.1.0",
-  "description": "Twitch platform adapter for Overlive — EventSub and Helix REST",
+  "description": "Twitch OAuth helpers — authorize URL, code exchange, token refresh, validate, revoke",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -22,15 +22,8 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "dependencies": {
-    "@overlive/core": "workspace:*",
-    "@overlive/twitch-oauth": "workspace:*"
-  },
   "devDependencies": {
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"
-  },
-  "peerDependencies": {
-    "@overlive/core": "workspace:*"
   }
 }

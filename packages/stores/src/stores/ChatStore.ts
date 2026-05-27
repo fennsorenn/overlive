@@ -1,5 +1,5 @@
 import type { OverliveKit, ChatMessageEvent } from '@overlive/core'
-import { createCollectionStore, type CollectionStoreImpl } from '../collection/CollectionStore.js'
+import { createCollectionStore } from '../collection/CollectionStore.js'
 import type { CollectionStore } from '../collection/types.js'
 
 export interface ChatStoreOptions {
@@ -46,8 +46,8 @@ export function createChatStore(
 
   const store = createCollectionStore<ChatMessageEvent>({
     getKey: (msg) => msg.data.messageId,
-    resetThreshold: options.resetThreshold,
-    initialItems: options.initialMessages,
+    ...(options.resetThreshold !== undefined && { resetThreshold: options.resetThreshold }),
+    ...(options.initialMessages && { initialItems: options.initialMessages }),
   })
 
   const sub = kit.on(
@@ -70,8 +70,8 @@ export function createChatStore(
       }
     },
     {
-      channels: options.channels,
-      resolveEmotes: options.resolveEmotes,
+      ...(options.channels && { channels: options.channels }),
+      ...(options.resolveEmotes !== undefined && { resolveEmotes: options.resolveEmotes }),
     },
   )
 
@@ -81,7 +81,7 @@ export function createChatStore(
     (event) => {
       store.delete(event.data.messageId)
     },
-    { channels: options.channels },
+    { ...(options.channels && { channels: options.channels }) },
   )
 
   store.onDestroy(() => {

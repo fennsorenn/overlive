@@ -36,13 +36,17 @@
     "@overlive/core": "workspace:*"
   },
   "peerDependencies": {
-    "@overlive/core": "workspace:*"
+    "@overlive/core": "workspace:*",
+    "react": ">=18.0.0",
+    "vue": ">=3.0.0"
   },
   "peerDependenciesMeta": {
     "react": { "optional": true },
     "vue": { "optional": true }
   },
   "devDependencies": {
+    "@types/react": "^18.0.0",
+    "vue": "^3.4.0",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"
   }
