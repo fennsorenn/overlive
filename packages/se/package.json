@@ -2,6 +2,13 @@
   "name": "@overlive/se",
   "version": "0.1.0",
   "description": "StreamElements adapter for the Overlive SDK",
+  "license": "UNLICENSED",
+  "author": "fennsorenn",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fennsorenn/overlive.git",
+    "directory": "packages/se"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -23,7 +30,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@overlive/core": "file:../core",
+    "@overlive/core": "workspace:*",
     "socket.io-client": "^4.7.0"
   },
   "devDependencies": {

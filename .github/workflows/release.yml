@@ -1,0 +1,69 @@
+name: Release
+
+# Publishes all @overlive/* packages to npm when a version tag is pushed.
+#
+# Expected workflow:
+#   1. Bump versions in packages/*/package.json (manually or via a tool).
+#   2. Commit + push to main.
+#   3. Tag the resulting commit (e.g. `git tag v0.0.1 && git push --tags`).
+#   4. This workflow fires, builds, and runs `pnpm publish -r --access public`.
+#
+# The first publish has to claim the @overlive scope on npm. Either:
+#   - Create an `overlive` org on npmjs.com first (recommended for multi-pkg).
+#   - Or just publish; npm auto-creates a personal-scope `@overlive` tied to
+#     the publishing account.
+#
+# Required repo secret:
+#   - NPM_TOKEN: an npm access token with publish rights on the scope.
+#     Generate at https://www.npmjs.com/settings/<you>/tokens (type:
+#     "Automation" or "Granular access token" scoped to publish).
+#
+# Notes:
+#   - We don't enforce that the tag matches the package versions. If you tag
+#     v0.0.1 but a package is still at 0.1.0, that package publishes 0.1.0.
+#     The tag is just the firing trigger. (A future improvement: enforce
+#     that the root version.json — or all package versions — match the tag.)
+#   - pnpm publish rewrites `workspace:*` deps to their concrete versions
+#     in the published tarball.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # `id-token: write` would be needed for npm provenance attestations.
+      # Skipping for the first publish; can be enabled later.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          # Tells npm/pnpm to use the public registry with auth so publish
+          # can use NPM_TOKEN.
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Publish to npm
+        # `--access public` is required for first publish of scoped
+        # packages (npm defaults to private for scoped names).
+        # `--no-git-checks` skips the "you have uncommitted changes" guard,
+        # which is irrelevant in CI but otherwise blocks the publish.
+        run: pnpm publish -r --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

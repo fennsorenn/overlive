@@ -2,6 +2,13 @@
   "name": "@overlive/twitch",
   "version": "0.1.0",
   "description": "Twitch platform adapter for Overlive — EventSub and Helix REST",
+  "license": "UNLICENSED",
+  "author": "fennsorenn",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fennsorenn/overlive.git",
+    "directory": "packages/twitch"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -29,8 +36,5 @@
   "devDependencies": {
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"
-  },
-  "peerDependencies": {
-    "@overlive/core": "workspace:*"
   }
 }

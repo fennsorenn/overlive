@@ -55,7 +55,7 @@ importers:
   packages/se:
     dependencies:
       '@overlive/core':
-        specifier: file:../core
+        specifier: workspace:*
         version: link:../core
       socket.io-client:
         specifier: ^4.7.0

@@ -2,6 +2,13 @@
   "name": "@overlive/stores",
   "version": "0.1.0",
   "description": "Reactive collection stores for Overlive — framework agnostic",
+  "license": "UNLICENSED",
+  "author": "fennsorenn",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fennsorenn/overlive.git",
+    "directory": "packages/stores"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -36,7 +43,6 @@
     "@overlive/core": "workspace:*"
   },
   "peerDependencies": {
-    "@overlive/core": "workspace:*",
     "react": ">=18.0.0",
     "vue": ">=3.0.0"
   },
