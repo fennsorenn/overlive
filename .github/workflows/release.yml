@@ -2,29 +2,36 @@ name: Release
 
 # Publishes all @overlive/* packages to npm when a version tag is pushed.
 #
+# Authentication: npm Trusted Publishing (OIDC). The runner mints a
+# short-lived JWT cryptographically bound to this exact workflow file +
+# repo + ref; npm verifies it against pre-registered Trusted Publisher
+# entries on each package. No long-lived secret stored anywhere.
+#
+# One-time setup (per package, on npmjs.com):
+#   1. Open the package page (https://www.npmjs.com/package/@overlive/<name>).
+#   2. Settings → Publishing access → Add Trusted Publisher.
+#   3. Publisher: GitHub Actions.
+#   4. Repository owner: fennsorenn.
+#   5. Repository name: overlive.
+#   6. Workflow filename: release.yml.
+#   7. Environment: (leave blank).
+#   8. Save. Repeat for each @overlive/* package.
+#
 # Expected workflow:
 #   1. Bump versions in packages/*/package.json (manually or via a tool).
 #   2. Commit + push to main.
-#   3. Tag the resulting commit (e.g. `git tag v0.0.1 && git push --tags`).
-#   4. This workflow fires, builds, and runs `pnpm publish -r --access public`.
-#
-# The first publish has to claim the @overlive scope on npm. Either:
-#   - Create an `overlive` org on npmjs.com first (recommended for multi-pkg).
-#   - Or just publish; npm auto-creates a personal-scope `@overlive` tied to
-#     the publishing account.
-#
-# Required repo secret:
-#   - NPM_TOKEN: an npm access token with publish rights on the scope.
-#     Generate at https://www.npmjs.com/settings/<you>/tokens (type:
-#     "Automation" or "Granular access token" scoped to publish).
+#   3. Tag the resulting commit (e.g. `git tag v0.1.1 && git push --tags`).
+#   4. This workflow fires, builds, publishes via OIDC.
 #
 # Notes:
-#   - We don't enforce that the tag matches the package versions. If you tag
-#     v0.0.1 but a package is still at 0.1.0, that package publishes 0.1.0.
-#     The tag is just the firing trigger. (A future improvement: enforce
-#     that the root version.json — or all package versions — match the tag.)
+#   - The tag is just the firing trigger; package versions come from each
+#     package.json. pnpm publish skips packages whose versions are already
+#     on the registry, so re-running the workflow on the same tag is safe.
 #   - pnpm publish rewrites `workspace:*` deps to their concrete versions
 #     in the published tarball.
+#   - --provenance attaches an npm attestation tying the tarball to this
+#     exact commit + workflow run; shows as a green badge on the npm
+#     package page.
 
 on:
   push:
@@ -36,8 +43,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # `id-token: write` would be needed for npm provenance attestations.
-      # Skipping for the first publish; can be enabled later.
+      # OIDC: lets the runner request a JWT from GitHub's identity
+      # provider for npm to verify against the Trusted Publisher
+      # registration. Without this, npm rejects with 401.
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -51,9 +60,13 @@ jobs:
         with:
           node-version: '22'
           cache: 'pnpm'
-          # Tells npm/pnpm to use the public registry with auth so publish
-          # can use NPM_TOKEN.
+          # OIDC publishes need npm CLI ≥11.5.1 — older versions don't know
+          # about Trusted Publishing. setup-node ships an older bundled
+          # npm with Node 22; we install a fresh one explicitly.
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Upgrade npm to a version that supports OIDC
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -66,6 +79,6 @@ jobs:
         # packages (npm defaults to private for scoped names).
         # `--no-git-checks` skips the "you have uncommitted changes" guard,
         # which is irrelevant in CI but otherwise blocks the publish.
-        run: pnpm publish -r --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # `--provenance` attaches the OIDC attestation. No NODE_AUTH_TOKEN
+        # env var — pnpm picks up the OIDC token from GitHub automatically.
+        run: pnpm publish -r --access public --no-git-checks --provenance
