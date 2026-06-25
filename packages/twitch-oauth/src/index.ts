@@ -27,6 +27,7 @@ export type TwitchScope =
   | 'moderator:read:followers'
   | 'moderator:read:chat_messages'
   | 'user:read:chat'
+  | 'user:write:chat'
   | 'channel:read:hype_train'
   | 'channel:read:polls'
   | 'channel:read:predictions'
@@ -48,6 +49,7 @@ export const DEFAULT_SCOPES: TwitchScope[] = [
   'moderator:read:followers',
   'moderator:read:chat_messages',
   'user:read:chat',
+  'user:write:chat',
 ]
 
 // ─── Authorize URL ────────────────────────────────────────────────────────────
