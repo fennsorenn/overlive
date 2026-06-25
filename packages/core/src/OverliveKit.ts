@@ -129,6 +129,16 @@ export class OverliveKit {
     }
   }
 
+  /**
+   * Look up a registered adapter by its `instanceId`. Returns `undefined` if
+   * nothing is registered under that id. Use this to reach a live adapter for
+   * outbound actions (e.g. sending a chat message) without keeping a separate
+   * reference outside the kit.
+   */
+  adapter(instanceId: string): PlatformAdapter | undefined {
+    return this.registry.get(instanceId)
+  }
+
   // ─── Adapter state observability ──────────────────────────────────────────
 
   /**

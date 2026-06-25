@@ -181,6 +181,14 @@ export class TwitchAdapter implements RestCapableAdapter {
   }
 
   /**
+   * Send a chat message to the broadcaster's channel as the broadcaster's own
+   * account. Requires the `user:write:chat` scope on the access token.
+   */
+  async sendChatMessage(text: string): Promise<void> {
+    await this.rest.sendChatMessage(text)
+  }
+
+  /**
    * Replace the command-prefix(es) used to detect chat commands. Takes
    * effect for subsequent messages — no reconnect required.
    */

@@ -1,6 +1,6 @@
 {
   "name": "@overlive/twitch-oauth",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Twitch OAuth helpers — authorize URL, code exchange, token refresh, validate, revoke",
   "license": "UNLICENSED",
   "author": "fennsorenn",

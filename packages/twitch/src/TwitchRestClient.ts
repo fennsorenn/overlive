@@ -72,6 +72,54 @@ export class TwitchRestClient implements AdapterRestClient {
     return res.json() as Promise<T>
   }
 
+  private async post<T>(path: string, body: unknown): Promise<T> {
+    const url = new URL(`${HELIX}${path}`)
+
+    const doFetch = (): Promise<Response> => fetch(url, {
+      method: 'POST',
+      headers: {
+        'Client-Id': this.clientId,
+        Authorization: `Bearer ${this.getAccessToken()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    let res = await doFetch()
+    if (res.status === 401 && this.on401) {
+      // Try to refresh and retry once.
+      try {
+        await this.on401()
+        res = await doFetch()
+      } catch {
+        // Fall through with the original 401 response.
+      }
+    }
+
+    if (!res.ok) {
+      throw new Error(`Twitch API error: ${res.status} ${res.statusText} (${path})`)
+    }
+
+    // Some Helix POSTs reply 204 with no body; tolerate an empty response.
+    const text = await res.text()
+    return (text ? JSON.parse(text) : undefined) as T
+  }
+
+  // ─── Send chat ────────────────────────────────────────────────────────────
+
+  /**
+   * Post a chat message to the broadcaster's channel as the broadcaster's own
+   * account (`sender_id === broadcaster_id`). Requires the `user:write:chat`
+   * scope on the access token. Helix: POST /helix/chat/messages.
+   */
+  async sendChatMessage(message: string): Promise<void> {
+    await this.post('/chat/messages', {
+      broadcaster_id: this.broadcasterId,
+      sender_id: this.broadcasterId,
+      message,
+    })
+  }
+
   // ─── Clips ────────────────────────────────────────────────────────────────
 
   async getClips(options: {
