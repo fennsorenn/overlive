@@ -1,6 +1,6 @@
 {
   "name": "@overlive/twitch",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Twitch platform adapter for Overlive — EventSub and Helix REST",
   "license": "UNLICENSED",
   "author": "fennsorenn",
