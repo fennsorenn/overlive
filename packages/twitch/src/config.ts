@@ -8,7 +8,7 @@ export interface TwitchAdapterConfig {
   /**
    * OAuth access token for the broadcaster or bot account.
    *
-   * Required scopes:
+   * Inbound (EventSub) scopes:
    *   - channel:read:redemptions          (channel point redemptions)
    *   - channel:read:subscriptions        (subscriptions)
    *   - bits:read                         (cheers/bits)
@@ -17,6 +17,29 @@ export interface TwitchAdapterConfig {
    *   - moderator:read:followers          (follows)
    *   - moderator:read:chat_messages      (chat message delete events)
    *   - user:read:chat                    (chat messages via EventSub)
+   *
+   * Outbound action scopes (PlatformActions) — only needed for the actions you
+   * actually use; each REST method documents its own requirement:
+   *   - user:write:chat                   (sendChatMessage)
+   *   - moderator:manage:announcements    (sendAnnouncement)
+   *   - moderator:manage:shoutouts        (sendShoutout)
+   *   - user:manage:chat_color            (updateChatColor)
+   *   - channel:manage:broadcast          (updateChannel, createStreamMarker)
+   *   - channel:edit:commercial           (startCommercial)
+   *   - channel:manage:ads                (snoozeAd)
+   *   - channel:manage:redemptions        (updateRedemptionStatus)
+   *   - moderator:manage:banned_users     (banUser, unbanUser)
+   *   - moderator:manage:chat_messages    (deleteChatMessage)
+   *   - moderator:manage:chat_settings    (updateChatSettings)
+   *   - moderator:manage:warnings         (warnUser)
+   *   - moderator:manage:automod          (manageAutoModMessage)
+   *   - channel:manage:vips               (addVip, removeVip)
+   *   - channel:manage:moderators         (addModerator, removeModerator)
+   *   - channel:manage:polls              (createPoll, endPoll)
+   *   - channel:manage:predictions        (createPrediction, endPrediction)
+   *   - channel:manage:raids              (startRaid, cancelRaid)
+   *   - user:manage:whispers              (sendWhisper — also requires a
+   *                                        phone-verified app; rate-limited)
    */
   accessToken: string
 

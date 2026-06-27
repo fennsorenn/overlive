@@ -5,6 +5,17 @@ import type {
   RestCapableAdapter,
   AdapterStateInfo,
   AdapterStateReason,
+  PlatformActions,
+  AnnouncementColor,
+  ChannelUpdate,
+  ChatSettingsUpdate,
+  BanOptions,
+  PollSpec,
+  PredictionSpec,
+  RedemptionStatus,
+  PollEndStatus,
+  PredictionEndStatus,
+  AutoModAction,
 } from '@overlive/core'
 import type { TwitchAdapterConfig } from './config.js'
 import { TwitchEventSubClient } from './EventSubClient.js'
@@ -27,7 +38,7 @@ import {
   type ChannelRef,
 } from './normalizers.js'
 
-export class TwitchAdapter implements RestCapableAdapter {
+export class TwitchAdapter implements RestCapableAdapter, PlatformActions {
   readonly platform = 'twitch' as const
   readonly displayName = 'Twitch'
 
@@ -186,6 +197,86 @@ export class TwitchAdapter implements RestCapableAdapter {
    */
   async sendChatMessage(text: string): Promise<void> {
     await this.rest.sendChatMessage(text)
+  }
+
+  // ─── Outbound actions (PlatformActions) ─────────────────────────────────────
+  // Thin passthroughs to the REST client. See TwitchRestClient for endpoints +
+  // scopes, and config.ts for the aggregated scope list.
+
+  async sendAnnouncement(message: string, color?: AnnouncementColor): Promise<void> {
+    await this.rest.sendAnnouncement(message, color)
+  }
+  async sendShoutout(toBroadcasterId: string): Promise<void> {
+    await this.rest.sendShoutout(toBroadcasterId)
+  }
+  async updateChatColor(color: string): Promise<void> {
+    await this.rest.updateChatColor(color)
+  }
+  async updateChannel(update: ChannelUpdate): Promise<void> {
+    await this.rest.updateChannel(update)
+  }
+  async createStreamMarker(description?: string): Promise<void> {
+    await this.rest.createStreamMarker(description)
+  }
+  async startCommercial(lengthSec: number): Promise<void> {
+    await this.rest.startCommercial(lengthSec)
+  }
+  async snoozeAd(): Promise<void> {
+    await this.rest.snoozeAd()
+  }
+  async updateRedemptionStatus(rewardId: string, redemptionId: string, status: RedemptionStatus): Promise<void> {
+    await this.rest.updateRedemptionStatus(rewardId, redemptionId, status)
+  }
+  async banUser(userId: string, options?: BanOptions): Promise<void> {
+    await this.rest.banUser(userId, options)
+  }
+  async unbanUser(userId: string): Promise<void> {
+    await this.rest.unbanUser(userId)
+  }
+  async deleteChatMessage(messageId?: string): Promise<void> {
+    await this.rest.deleteChatMessage(messageId)
+  }
+  async updateChatSettings(settings: ChatSettingsUpdate): Promise<void> {
+    await this.rest.updateChatSettings(settings)
+  }
+  async warnUser(userId: string, reason: string): Promise<void> {
+    await this.rest.warnUser(userId, reason)
+  }
+  async manageAutoModMessage(messageId: string, action: AutoModAction): Promise<void> {
+    await this.rest.manageAutoModMessage(messageId, action)
+  }
+  async addVip(userId: string): Promise<void> {
+    await this.rest.addVip(userId)
+  }
+  async removeVip(userId: string): Promise<void> {
+    await this.rest.removeVip(userId)
+  }
+  async addModerator(userId: string): Promise<void> {
+    await this.rest.addModerator(userId)
+  }
+  async removeModerator(userId: string): Promise<void> {
+    await this.rest.removeModerator(userId)
+  }
+  async createPoll(spec: PollSpec): Promise<void> {
+    await this.rest.createPoll(spec)
+  }
+  async endPoll(pollId: string, status: PollEndStatus): Promise<void> {
+    await this.rest.endPoll(pollId, status)
+  }
+  async createPrediction(spec: PredictionSpec): Promise<void> {
+    await this.rest.createPrediction(spec)
+  }
+  async endPrediction(predictionId: string, status: PredictionEndStatus, winningOutcomeId?: string): Promise<void> {
+    await this.rest.endPrediction(predictionId, status, winningOutcomeId)
+  }
+  async startRaid(toBroadcasterId: string): Promise<void> {
+    await this.rest.startRaid(toBroadcasterId)
+  }
+  async cancelRaid(): Promise<void> {
+    await this.rest.cancelRaid()
+  }
+  async sendWhisper(toUserId: string, message: string): Promise<void> {
+    await this.rest.sendWhisper(toUserId, message)
   }
 
   /**

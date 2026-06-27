@@ -1,6 +1,6 @@
 {
   "name": "@overlive/core",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Unified live stream meta-event SDK — core runtime",
   "license": "UNLICENSED",
   "author": "fennsorenn",
