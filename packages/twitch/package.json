@@ -30,8 +30,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@overlive/core": "workspace:*",
-    "@overlive/twitch-oauth": "workspace:*"
+    "@overlive/core": "workspace:^",
+    "@overlive/twitch-oauth": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

@@ -1,6 +1,6 @@
 {
   "name": "@overlive/emotes",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Emote resolution for Twitch, 7TV, BTTV, and FFZ",
   "license": "UNLICENSED",
   "author": "fennsorenn",
@@ -30,7 +30,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@overlive/core": "workspace:*"
+    "@overlive/core": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

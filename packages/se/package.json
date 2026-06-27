@@ -1,6 +1,6 @@
 {
   "name": "@overlive/se",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "StreamElements adapter for the Overlive SDK",
   "license": "UNLICENSED",
   "author": "fennsorenn",
@@ -30,7 +30,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@overlive/core": "workspace:*",
+    "@overlive/core": "workspace:^",
     "socket.io-client": "^4.7.0"
   },
   "devDependencies": {
