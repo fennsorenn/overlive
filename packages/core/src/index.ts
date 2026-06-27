@@ -46,6 +46,22 @@ export type {
 } from './adapter/types.js'
 export { isRestCapable } from './adapter/types.js'
 
+// Outbound platform actions — capability surface for write-capable adapters
+export type {
+  PlatformActions,
+  AnnouncementColor,
+  ChannelUpdate,
+  ChatSettingsUpdate,
+  BanOptions,
+  PollSpec,
+  PredictionSpec,
+  RedemptionStatus,
+  PollEndStatus,
+  PredictionEndStatus,
+  AutoModAction,
+} from './adapter/actions.js'
+export { supportsActions } from './adapter/actions.js'
+
 // Kit-level adapter state observability
 export type { AdapterStateSnapshot, AdapterStateListener } from './OverliveKit.js'
 
