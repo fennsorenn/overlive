@@ -42,7 +42,7 @@ importers:
   packages/emotes:
     dependencies:
       '@overlive/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
     devDependencies:
       typescript:
@@ -55,7 +55,7 @@ importers:
   packages/se:
     dependencies:
       '@overlive/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       socket.io-client:
         specifier: ^4.7.0
@@ -71,7 +71,7 @@ importers:
   packages/stores:
     dependencies:
       '@overlive/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       react:
         specifier: '>=18.0.0'
@@ -93,10 +93,10 @@ importers:
   packages/twitch:
     dependencies:
       '@overlive/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@overlive/twitch-oauth':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../twitch-oauth
     devDependencies:
       typescript:
