@@ -1,4 +1,4 @@
-import type { Platform } from '../events/types.js'
+import type { Goal, Platform } from '../events/types.js'
 import type { AdapterRegistry } from '../adapter/AdapterRegistry.js'
 import { isRestCapable } from '../adapter/types.js'
 
@@ -125,6 +125,24 @@ export class UnifiedRestClient {
       .filter((r): r is PromiseFulfilledResult<ChattersResult | null> => r.status === 'fulfilled')
       .map((r) => r.value)
       .filter((v): v is ChattersResult => v !== null)
+  }
+
+  // ─── Goals ─────────────────────────────────────────────────────────────────
+
+  /** The channels' active creator goals, across every capable adapter. */
+  async getGoals(options: {
+    platform?: Platform | Platform[]
+  } = {}): Promise<Goal[]> {
+    const clients = this.getRestClients(options.platform)
+    const results = await Promise.allSettled(
+      clients.map(async (c) => {
+        if (!('getGoals' in c)) return []
+        return (c as any).getGoals()
+      }),
+    )
+    return results
+      .filter((r): r is PromiseFulfilledResult<Goal[]> => r.status === 'fulfilled')
+      .flatMap((r) => r.value)
   }
 
   // ─── Internal helpers ──────────────────────────────────────────────────────

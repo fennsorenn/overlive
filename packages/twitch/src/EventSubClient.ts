@@ -37,6 +37,9 @@ const SUBSCRIPTION_SCOPES: Record<string, TwitchScope[]> = {
   'channel.ad_break.begin':                               ['channel:read:ads'],
   'stream.online':                                        [],
   'stream.offline':                                       [],
+  'channel.goal.begin':                                   ['channel:read:goals'],
+  'channel.goal.progress':                                ['channel:read:goals'],
+  'channel.goal.end':                                     ['channel:read:goals'],
 }
 
 interface EventSubMessage {
@@ -208,6 +211,9 @@ export class TwitchEventSubClient {
       { type: 'channel.ad_break.begin',                               version: '1' },
       { type: 'stream.online',                                        version: '1' },
       { type: 'stream.offline',                                       version: '1' },
+      { type: 'channel.goal.begin',                                   version: '1' },
+      { type: 'channel.goal.progress',                                version: '1' },
+      { type: 'channel.goal.end',                                     version: '1' },
     ]
 
     // Pre-flight scope check: ask Twitch what scopes the current token

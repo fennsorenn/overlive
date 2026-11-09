@@ -33,6 +33,7 @@ import {
   normalizeAdBreak,
   normalizeStreamOnline,
   normalizeStreamOffline,
+  normalizeGoal,
   normalizeChatMessage,
   normalizeChatMessageDelete,
   type ChannelRef,
@@ -343,6 +344,15 @@ export class TwitchAdapter implements RestCapableAdapter, PlatformActions {
           break
         case 'stream.offline':
           this.handler(normalizeStreamOffline(raw, ref))
+          break
+        case 'channel.goal.begin':
+          this.handler(normalizeGoal(raw, 'begin', ref))
+          break
+        case 'channel.goal.progress':
+          this.handler(normalizeGoal(raw, 'progress', ref))
+          break
+        case 'channel.goal.end':
+          this.handler(normalizeGoal(raw, 'end', ref))
           break
       }
     } catch (e) {

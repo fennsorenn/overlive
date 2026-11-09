@@ -50,6 +50,7 @@ export const DEFAULT_SCOPES: TwitchScope[] = [
   'moderator:read:chat_messages',
   'user:read:chat',
   'user:write:chat',
+  'channel:read:goals',
 ]
 
 // ─── Authorize URL ────────────────────────────────────────────────────────────
