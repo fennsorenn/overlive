@@ -1,6 +1,6 @@
 {
   "name": "@overlive/twitch-oauth",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Twitch OAuth helpers — authorize URL, code exchange, token refresh, validate, revoke",
   "license": "UNLICENSED",
   "author": "fennsorenn",
@@ -20,7 +20,10 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",

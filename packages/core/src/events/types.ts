@@ -328,6 +328,53 @@ export interface StreamOfflineEvent extends BaseEvent {
   data: Record<string, never>
 }
 
+/**
+ * What a creator goal counts. Twitch's kinds, with Helix's `follower`
+ * normalized to `follow`. `subscription` counts sub points, the `_count`
+ * variants count subscriptions; `new_*` count only new ones since the goal
+ * started.
+ */
+export type GoalKind =
+  | 'follow'
+  | 'subscription'
+  | 'subscription_count'
+  | 'new_subscription'
+  | 'new_subscription_count'
+  | 'new_bit'
+  | 'new_cheerer'
+  | (string & {})
+
+/** A creator goal as it currently stands. */
+export interface Goal {
+  /** Platform goal id — stable across begin / progress / end. */
+  id: string
+  kind: GoalKind
+  description: string
+  current: number
+  target: number
+  startedAt?: Date
+  platform: Platform
+}
+
+/**
+ * A creator goal began, progressed or ended. `achieved` is only meaningful
+ * when `phase` is `end`.
+ */
+export interface GoalEvent extends BaseEvent {
+  type: 'goal'
+  data: {
+    goalId: string
+    kind: GoalKind
+    description: string
+    current: number
+    target: number
+    phase: 'begin' | 'progress' | 'end'
+    achieved: boolean
+    startedAt?: Date
+    endedAt?: Date
+  }
+}
+
 // ─── Union of all events ──────────────────────────────────────────────────────
 
 export type OverliveEvent =
@@ -344,6 +391,7 @@ export type OverliveEvent =
   | DeleteMessageEvent
   | StreamOnlineEvent
   | StreamOfflineEvent
+  | GoalEvent
 
 export type EventType = OverliveEvent['type']
 
@@ -369,3 +417,4 @@ export type AdapterEmittedEvent =
   | Omit<DeleteMessageEvent,     'sourceInstanceId'>
   | Omit<StreamOnlineEvent,      'sourceInstanceId'>
   | Omit<StreamOfflineEvent,     'sourceInstanceId'>
+  | Omit<GoalEvent,              'sourceInstanceId'>

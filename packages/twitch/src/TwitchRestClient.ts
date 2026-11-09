@@ -4,6 +4,7 @@ import type {
   ClipResult,
   StreamInfo,
   ChattersResult,
+  Goal,
   AnnouncementColor,
   ChannelUpdate,
   ChatSettingsUpdate,
@@ -15,6 +16,8 @@ import type {
   PredictionEndStatus,
   AutoModAction,
 } from '@overlive/core'
+
+import { goalKind } from './normalizers.js'
 
 const HELIX = 'https://api.twitch.tv/helix'
 
@@ -443,6 +446,28 @@ export class TwitchRestClient implements AdapterRestClient {
       startedAt: new Date(String(stream['started_at'] ?? '')),
       platform: 'twitch',
     }
+  }
+
+  // ─── Creator goals ────────────────────────────────────────────────────────
+
+  /** The channel's active creator goals (scope `channel:read:goals`). */
+  async getGoals(): Promise<Goal[]> {
+    const data = await this.get<{ data: unknown[] }>('/goals', {
+      broadcaster_id: this.broadcasterId,
+    })
+    return (data.data ?? []).map((raw) => {
+      const g = raw as Record<string, unknown>
+      const created = g['created_at'] ? new Date(String(g['created_at'])) : null
+      return {
+        id: String(g['id'] ?? ''),
+        kind: goalKind(g['type']),
+        description: String(g['description'] ?? ''),
+        current: Number(g['current_amount'] ?? 0),
+        target: Number(g['target_amount'] ?? 0),
+        ...(created && !Number.isNaN(created.getTime()) ? { startedAt: created } : {}),
+        platform: 'twitch',
+      }
+    })
   }
 
   // ─── Chatters ─────────────────────────────────────────────────────────────

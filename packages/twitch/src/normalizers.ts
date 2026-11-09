@@ -9,6 +9,8 @@ import type {
   AdStartEvent,
   StreamOnlineEvent,
   StreamOfflineEvent,
+  GoalEvent,
+  GoalKind,
   SubscriptionTier,
 } from '@overlive/core'
 
@@ -524,6 +526,48 @@ export function normalizeChatMessageDelete(raw: unknown, channelRef: ChannelRef)
       username: String(e['target_user_login'] ?? ''),
       ...opt('userId', String(e['target_user_id'] ?? '')),
       ...opt('moderator', moderator),
+    },
+  }
+}
+
+// ─── Creator goals ───────────────────────────────────────────────────────────
+
+/** Twitch goal type → GoalKind. Helix says `follower`, EventSub `follow`. */
+export function goalKind(raw: unknown): GoalKind {
+  const t = String(raw ?? '')
+  return t === 'follower' ? 'follow' : t
+}
+
+const dateOrNone = (raw: unknown): { startedAt?: Date } | Record<string, never> => {
+  const d = raw ? new Date(String(raw)) : null
+  return d && !Number.isNaN(d.getTime()) ? { startedAt: d } : {}
+}
+
+/** `channel.goal.begin` / `.progress` / `.end` (all share one payload shape). */
+export function normalizeGoal(
+  raw: unknown,
+  phase: 'begin' | 'progress' | 'end',
+  channelRef: ChannelRef,
+): Emitted<GoalEvent> {
+  const e = raw as Record<string, unknown>
+  const ended = e['ended_at'] ? new Date(String(e['ended_at'])) : null
+  return {
+    id: randomUUID(),
+    type: 'goal',
+    platform: PLATFORM,
+    ...ch(channelRef),
+    timestamp: new Date(),
+    raw,
+    data: {
+      goalId: String(e['id'] ?? ''),
+      kind: goalKind(e['type']),
+      description: String(e['description'] ?? ''),
+      current: Number(e['current_amount'] ?? 0),
+      target: Number(e['target_amount'] ?? 0),
+      phase,
+      achieved: phase === 'end' && e['is_achieved'] === true,
+      ...dateOrNone(e['started_at']),
+      ...(ended && !Number.isNaN(ended.getTime()) ? { endedAt: ended } : {}),
     },
   }
 }
